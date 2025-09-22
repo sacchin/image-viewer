@@ -7,17 +7,19 @@
     "doc": "doc"
   },
   "scripts": {
-    "start": "npm run build:main && concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+    "start": "npm run build && electron dist/main/index.js",
+    "dev": "npm run build:main && concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
     "dev:main": "set NODE_ENV=development&& electron .",
     "dev:renderer": "webpack serve --config webpack.config.js",
-    "build": "npm run build:main && npm run build:renderer",
+    "clean": "powershell -Command \"if (Test-Path dist) { Remove-Item -Path dist -Recurse -Force }\"",
+    "build": "npm run clean && npm run build:main && npm run build:renderer",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "webpack --config webpack.config.js",
     "dist": "electron-builder",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:debug": "playwright test --debug"
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:headed": "npm run build && playwright test --headed",
+    "test:e2e:debug": "npm run build && playwright test --debug"
   },
   "repository": {
     "type": "git",
