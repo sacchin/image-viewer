@@ -37,3 +37,15 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+:root {
+  --primary-color: #007bff;
+  --primary-color-dark: #0056b3;
+  --secondary-bg: #f8f9fa;
+  --bg-color: #ffffff;
+  --text-color: #333333;
+  --text-secondary: #6c757d;
+  --border-color: #dee2e6;
+  --hover-bg: #e9ecef;
+  --primary-bg: #e7f2ff;
+}

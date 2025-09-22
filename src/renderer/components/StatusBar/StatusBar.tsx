@@ -3,9 +3,10 @@ import './StatusBar.css';
 
 interface StatusBarProps {
   selectedWork: string | null;
+  currentPanel?: string;
 }
 
-const StatusBar: React.FC<StatusBarProps> = ({ selectedWork }) => {
+const StatusBar: React.FC<StatusBarProps> = ({ selectedWork, currentPanel }) => {
   return (
     <div className="status-bar" data-testid="status-bar">
       <span className="status-bar-item" data-testid="item-count">
@@ -14,6 +15,11 @@ const StatusBar: React.FC<StatusBarProps> = ({ selectedWork }) => {
       <span className="status-bar-item" data-testid="selected-count">
         0 selected
       </span>
+      {currentPanel && (
+        <span className="status-bar-item current-panel">
+          Panel: {currentPanel}
+        </span>
+      )}
       <span className="status-bar-item status-bar-right" data-testid="zoom-level">
         100%
       </span>

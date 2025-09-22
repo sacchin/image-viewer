@@ -2,12 +2,21 @@ import React from 'react';
 import './FolderTree.css';
 
 interface FolderTreeProps {
-  works: any[];
-  selectedWork: string | null;
-  onSelect: (workId: string) => void;
+  onFolderSelect?: (folder: string) => void;
+  works?: any[];
+  selectedWork?: string | null;
+  onSelect?: (workId: string) => void;
 }
 
-const FolderTree: React.FC<FolderTreeProps> = ({ works, selectedWork, onSelect }) => {
+const FolderTree: React.FC<FolderTreeProps> = ({ onFolderSelect, works = [], selectedWork, onSelect }) => {
+  const handleItemClick = (workId: string, workName: string) => {
+    if (onFolderSelect) {
+      onFolderSelect(workName);
+    }
+    if (onSelect) {
+      onSelect(workId);
+    }
+  };
   return (
     <div className="folder-tree" data-testid="sidebar">
       <div className="folder-tree-header">
@@ -25,7 +34,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({ works, selectedWork, onSelect }
               <li
                 key={work.id}
                 className={`folder-tree-item ${selectedWork === work.id ? 'selected' : ''}`}
-                onClick={() => onSelect(work.id)}
+                onClick={() => handleItemClick(work.id, work.name)}
               >
                 {work.name}
               </li>

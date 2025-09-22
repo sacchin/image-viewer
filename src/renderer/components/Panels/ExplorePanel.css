@@ -1,0 +1,17 @@
+.explore-panel {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.explore-panel-sidebar {
+  width: 250px;
+  border-right: 1px solid var(--border-color);
+  background-color: var(--secondary-bg);
+  overflow-y: auto;
+}
+
+.explore-panel-content {
+  flex: 1;
+  overflow-y: auto;
+}
