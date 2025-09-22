@@ -9,11 +9,11 @@ interface FolderTreeProps {
 
 const FolderTree: React.FC<FolderTreeProps> = ({ works, selectedWork, onSelect }) => {
   return (
-    <div className="folder-tree">
+    <div className="folder-tree" data-testid="sidebar">
       <div className="folder-tree-header">
         <h3>Library</h3>
       </div>
-      <div className="folder-tree-content">
+      <div className="folder-tree-content" data-testid="folder-tree">
         {works.length === 0 ? (
           <div className="folder-tree-empty">
             <p>No works in library</p>

@@ -5,11 +5,74 @@
  <!-- 主要ディレクトリ: `api/`, `web/`, `infra/`。 -->
 
 ## セットアップ/ビルド/テスト
-<!-- - 依存解決: `pnpm i`
-- Lint/Typecheck: `pnpm lint && pnpm typecheck`
-- 単体テスト: `pnpm test`
-- E2E: `pnpm e2e`
-- 変更をコミットする前に上のチェックが**全て緑**であること -->
+
+### 初期セットアップ
+```bash
+# 依存パッケージのインストール
+npm install
+
+# アプリケーションのビルド
+npm run build
+```
+
+### 開発環境での起動
+```bash
+# 開発モードで起動（Hot Reload対応）
+npm start
+```
+
+### E2Eテスト（Playwright）
+
+#### テストの実行方法
+```bash
+# 全てのE2Eテストを実行（ヘッドレスモード）
+npm run test:e2e
+
+# ブラウザ表示付きでテストを実行
+npm run test:e2e:headed
+
+# デバッグモードでテストを実行（ステップ実行可能）
+npm run test:e2e:debug
+
+# 特定のテストファイルのみ実行
+npx playwright test app-launch.spec.ts
+
+# テスト結果のレポートを表示
+npx playwright show-report
+```
+
+#### テストカテゴリ
+- **app-launch.spec.ts**: アプリケーション起動テスト（6テスト）
+  - Electronアプリの起動確認
+  - ウィンドウサイズ・タイトルの検証
+
+- **initial-ui.spec.ts**: UI初期表示テスト（9テスト）
+  - 各UIコンポーネントの表示確認
+  - 初期状態の検証
+
+- **menu.spec.ts**: メニューテスト（9テスト）
+  - 各メニュー項目の存在確認
+  - ショートカットキーの検証
+
+#### テスト前の準備
+```bash
+# アプリケーションのビルドが必要
+npm run build
+
+# テストのみ実行する場合
+npm run test:e2e
+```
+
+#### CI/CD環境での実行
+テストはヘッドレスモードで自動実行され、結果は以下に出力されます：
+- `test-results/`: テスト結果とスクリーンショット
+- `playwright-report/`: HTMLレポート
+- `test-results/results.json`: JSON形式の結果
+
+### コミット前のチェック事項
+1. ビルドが成功すること: `npm run build`
+2. E2Eテストが全て合格すること: `npm run test:e2e`
+3. 変更内容に応じて新しいテストを追加すること
 
 ## コーディング規約（要点）
 <!-- - TypeScript: strict。import順序はeslint-plugin-importに従う。PRごとに型エラーゼロ。

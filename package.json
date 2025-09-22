@@ -14,7 +14,10 @@
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "webpack --config webpack.config.js",
     "dist": "electron-builder",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
   },
   "repository": {
     "type": "git",
@@ -28,6 +31,7 @@
   },
   "homepage": "https://github.com/sacchin/image-viewer#readme",
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
@@ -44,6 +48,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "html-webpack-plugin": "^5.6.4",
+    "playwright": "^1.55.0",
     "prettier": "^3.6.2",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.4",

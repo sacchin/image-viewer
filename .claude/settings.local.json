@@ -6,7 +6,9 @@
       "Bash(npm run build:main:*)",
       "Bash(npm run build:renderer:*)",
       "Bash(dir:*)",
-      "Bash(npm start)"
+      "Bash(npm start)",
+      "Bash(npm run build:*)",
+      "Bash(npx playwright test:*)"
     ],
     "deny": [],
     "ask": []
