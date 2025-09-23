@@ -8,7 +8,9 @@
       "Bash(dir:*)",
       "Bash(npm start)",
       "Bash(npm run build:*)",
-      "Bash(npx playwright test:*)"
+      "Bash(npx playwright test:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npm run test:e2e:*)"
     ],
     "deny": [],
     "ask": []
