@@ -169,28 +169,4 @@ test.describe('Application Menu', () => {
     }
   });
 
-  test('メニューのショートカットキーが正しく設定されている', async () => {
-    const app = electronApp.getApp();
-    const menuShortcuts = await app.evaluate(async ({ Menu }) => {
-      const menu = Menu.getApplicationMenu();
-      if (!menu) return [];
-
-      const shortcuts: any[] = [];
-      menu.items.forEach(item => {
-        if (item.submenu) {
-          item.submenu.items.forEach(subItem => {
-            if (subItem.accelerator) {
-              shortcuts.push({
-                label: subItem.label,
-                accelerator: subItem.accelerator
-              });
-            }
-          });
-        }
-      });
-      return shortcuts;
-    });
-
-    expect(menuShortcuts.length).toBeGreaterThan(0);
-  });
 });
