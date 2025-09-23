@@ -2,12 +2,15 @@ import React from 'react';
 import './ImageGrid.css';
 
 interface ImageGridProps {
-  workId: string | null;
-  viewMode: 'grid' | 'list';
+  selectedFolder?: string | null;
+  workId?: string | null;
+  viewMode?: 'grid' | 'list';
 }
 
-const ImageGrid: React.FC<ImageGridProps> = ({ workId, viewMode }) => {
-  if (!workId) {
+const ImageGrid: React.FC<ImageGridProps> = ({ selectedFolder, workId, viewMode = 'grid' }) => {
+  const displayId = selectedFolder || workId;
+
+  if (!displayId) {
     return (
       <div className="image-grid-empty" data-testid="image-grid">
         <div data-testid="empty-state">
@@ -20,7 +23,7 @@ const ImageGrid: React.FC<ImageGridProps> = ({ workId, viewMode }) => {
   return (
     <div className={`image-grid ${viewMode}`} data-testid="image-grid">
       <div className="image-grid-placeholder">
-        <p>Images for {workId} will appear here</p>
+        <p>Images for {displayId} will appear here</p>
         <p className="image-grid-hint">View mode: {viewMode}</p>
       </div>
     </div>
