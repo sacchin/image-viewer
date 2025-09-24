@@ -1,0 +1,182 @@
+.download-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.download-dialog {
+  width: 640px;
+  max-height: 80vh;
+  background-color: var(--secondary-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+
+.download-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.download-dialog-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-color);
+}
+
+.download-dialog-close {
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+
+.download-dialog-close:hover {
+  background-color: var(--hover-bg);
+  border-radius: 4px;
+}
+
+.download-dialog-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+}
+
+.download-dialog-body label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.download-dialog-url-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.download-dialog-url-group input {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.download-dialog-url-group input:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 1px;
+}
+
+.download-dialog-scrape {
+  padding: 0.6rem 1.25rem;
+  border-radius: 6px;
+  border: none;
+  background-color: var(--primary-color);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.download-dialog-scrape:disabled {
+  background-color: var(--border-color);
+  cursor: not-allowed;
+}
+
+.download-dialog-error {
+  color: var(--danger-color, #ff6b6b);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.download-dialog-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  background-color: var(--bg-color);
+}
+
+.download-dialog-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.download-dialog-summary h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-color);
+}
+
+.download-dialog-summary span {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.download-dialog-url-list {
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-right: 0.25rem;
+}
+
+.download-dialog-url-item {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.download-dialog-url-index {
+  color: var(--text-color);
+}
+
+.download-dialog-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.download-dialog-cancel,
+.download-dialog-submit {
+  padding: 0.6rem 1.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--secondary-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.download-dialog-submit {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+}
+
+.download-dialog-submit:disabled {
+  background-color: var(--border-color);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}

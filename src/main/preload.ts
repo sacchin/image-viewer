@@ -13,9 +13,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('save-metadata', workId, metadata),
 
   // Crawler operations
-  startCrawling: (url: string) => ipcRenderer.invoke('start-crawling', url),
+  startCrawl: (url: string, data?: any) => ipcRenderer.invoke('start-crawling', url, data),
+  startCrawling: (url: string, data?: any) => ipcRenderer.invoke('start-crawling', url, data),
   cancelCrawling: () => ipcRenderer.invoke('cancel-crawling'),
   onCrawlingProgress: (callback: (progress: any) => void) => {
-    ipcRenderer.on('crawling-progress', (_, progress) => callback(progress));
+    const handler = (_: Electron.IpcRendererEvent, progress: any) => callback(progress);
+    ipcRenderer.on('crawling-progress', handler);
+    return () => ipcRenderer.off('crawling-progress', handler);
+  },
+  onCrawlProgress: (callback: (progress: any) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, progress: any) => callback(progress);
+    ipcRenderer.on('crawling-progress', handler);
+    return () => ipcRenderer.off('crawling-progress', handler);
   }
 });

@@ -35,9 +35,9 @@ export function setupIpcHandlers(): void {
   });
 
   // Crawler operations
-  ipcMain.handle('start-crawling', async (_, url: string) => {
+  ipcMain.handle('start-crawling', async (_, url: string, data?: any) => {
     // TODO: Implement crawler logic
-    console.log('Starting crawler for:', url);
+    console.log('Starting crawler for:', url, data);
     return { status: 'started', url };
   });
 

@@ -32,6 +32,7 @@ export const SideMenu: React.FC<SideMenuProps> = ({ activeItem, onItemClick }) =
             onClick={() => onItemClick(item.id)}
             aria-current={activeItem === item.id ? 'page' : undefined}
             data-menu-item={item.id}
+            data-testid={`side-menu-${item.id}`}
             role="button"
             tabIndex={0}
           >
