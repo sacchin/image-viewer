@@ -111,10 +111,10 @@ test.describe('UI Integration Tests', () => {
     await electronApp.click('[data-menu-item="setting"]');
     await electronApp.waitForSelector('[data-panel="setting"]');
 
-    // 設定値を入力
-    const themeSelect = await window.$('select[name="theme"]');
-    if (themeSelect) {
-      await themeSelect.selectOption('dark');
+    // デフォルトダウンロードパスを変更
+    const pathInput = await window.$('.setting-input');
+    if (pathInput) {
+      await pathInput.fill('D:\\TestDownloads');
     }
 
     // 別のパネルに移動
@@ -126,9 +126,9 @@ test.describe('UI Integration Tests', () => {
     await electronApp.waitForSelector('[data-panel="setting"]');
 
     // 入力値が保持されていることを確認
-    if (themeSelect) {
-      const selectedValue = await themeSelect.evaluate((el: HTMLSelectElement) => el.value);
-      expect(selectedValue).toBe('dark');
+    if (pathInput) {
+      const inputValue = await pathInput.evaluate((el: HTMLInputElement) => el.value);
+      expect(inputValue).toBe('D:\\TestDownloads');
     }
   });
 
