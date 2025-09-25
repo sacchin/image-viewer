@@ -52,20 +52,20 @@ test.describe('Download workflow (docs/1-5-1, 1-5-2)', () => {
   });
 
   test.describe('DownloadDialog', () => {
-    // test('shows scraped metadata and enables start for a valid gallery', async () => {
-    //   // Set up the mock before opening dialog
-    //   await downloadPage!.stubFetchWithHtml(VALID_HTML);
-    //   await downloadPage!.openCreateJobDialog();
-    //   await downloadPage!.fillUrl('https://example.com/gallery/123');
-    //   await downloadPage!.triggerScrape();
-    //   await downloadPage!.waitForScrapeResult();
+    test('shows scraped metadata and enables start for a valid gallery', async () => {
+      // Set up the mock before opening dialog
+      await downloadPage!.stubFetchWithHtml(VALID_HTML);
+      await downloadPage!.openCreateJobDialog();
+      await downloadPage!.fillUrl('https://example.com/gallery/123');
+      await downloadPage!.triggerScrape();
+      await downloadPage!.waitForScrapeResult();
 
-    //   expect(await downloadPage!.getScrapeTitle()).toBe('[Author] Sample Title (Series)');
-    //   expect(await downloadPage!.getScrapePageCount()).toContain('3');
-    //   expect(await downloadPage!.getScrapeImageCount()).toBe(3);
-    //   expect(await downloadPage!.isStartEnabled()).toBe(true);
-    //   expect(await downloadPage!.getFetchCallCount()).toBe(1);
-    // });
+      expect(await downloadPage!.getScrapeTitle()).toBe('[Author] Sample Title (Series)');
+      expect(await downloadPage!.getScrapePageCount()).toContain('3');
+      expect(await downloadPage!.getScrapeImageCount()).toBe(3);
+      expect(await downloadPage!.isStartEnabled()).toBe(true);
+      expect(await downloadPage!.getFetchCallCount()).toBe(1);
+    });
 
     test('blocks scraping when URL is empty', async () => {
       await downloadPage!.stubFetchWithHtml(VALID_HTML);
@@ -94,52 +94,52 @@ test.describe('Download workflow (docs/1-5-1, 1-5-2)', () => {
     });
   });
 
-  // test.describe('DownloadDialog - Additional tests', () => {
-    // test('surfaces network errors and keeps start disabled', async () => {
-    //   await downloadPage!.stubFetchWithError('Network unreachable');
-    //   await downloadPage!.openCreateJobDialog();
-    //   await downloadPage!.fillUrl('https://example.com/gallery/500');
-    //   await downloadPage!.triggerScrape();
-    //   await downloadPage!.waitForError();
+  test.describe('DownloadDialog - Additional tests', () => {
+    test('surfaces network errors and keeps start disabled', async () => {
+      await downloadPage!.stubFetchWithError('Network unreachable');
+      await downloadPage!.openCreateJobDialog();
+      await downloadPage!.fillUrl('https://example.com/gallery/500');
+      await downloadPage!.triggerScrape();
+      await downloadPage!.waitForError();
 
-    //   const errorMessage = await downloadPage!.getErrorMessage();
-    //   expect(errorMessage).toContain('Network unreachable');
-    //   expect(await downloadPage!.isStartEnabled()).toBe(false);
-    //   expect(await downloadPage!.getFetchCallCount()).toBe(1);
-    // });
+      const errorMessage = await downloadPage!.getErrorMessage();
+      expect(errorMessage).toContain('Network unreachable');
+      expect(await downloadPage!.isStartEnabled()).toBe(false);
+      expect(await downloadPage!.getFetchCallCount()).toBe(1);
+    });
 
-  //   test('handles missing HTML sections gracefully', async () => {
-  //     await downloadPage!.stubFetchWithHtml(MISSING_SECTIONS_HTML);
-  //     await downloadPage!.openCreateJobDialog();
-  //     await downloadPage!.fillUrl('https://example.com/gallery/missing');
-  //     await downloadPage!.triggerScrape();
-  //     await downloadPage!.waitForScrapeResult();
+    test('handles missing HTML sections gracefully', async () => {
+      await downloadPage!.stubFetchWithHtml(MISSING_SECTIONS_HTML);
+      await downloadPage!.openCreateJobDialog();
+      await downloadPage!.fillUrl('https://example.com/gallery/missing');
+      await downloadPage!.triggerScrape();
+      await downloadPage!.waitForScrapeResult();
 
-  //     expect(await downloadPage!.getScrapeTitle()).toBe('');
-  //     expect(await downloadPage!.getScrapeImageCount()).toBe(0);
-  //     expect(await downloadPage!.isStartEnabled()).toBe(false);
+      expect(await downloadPage!.getScrapeTitle()).toBe('');
+      expect(await downloadPage!.getScrapeImageCount()).toBe(0);
+      expect(await downloadPage!.isStartEnabled()).toBe(false);
 
-  //     const message = (await downloadPage!.getErrorMessage()).toLowerCase();
-  //     expect(message).toContain('missing');
-  //   });
+      const message = (await downloadPage!.getErrorMessage()).toLowerCase();
+      expect(message).toContain('missing');
+    });
 
-  //   test('cancel closes dialog and resets state', async () => {
-  //     await downloadPage!.stubFetchWithHtml(VALID_HTML);
-  //     await downloadPage!.openCreateJobDialog();
-  //     await downloadPage!.fillUrl('https://example.com/gallery/reset');
-  //     await downloadPage!.triggerScrape();
-  //     await downloadPage!.waitForScrapeResult();
-  //     expect(await downloadPage!.isStartEnabled()).toBe(true);
+    test('cancel closes dialog and resets state', async () => {
+      await downloadPage!.stubFetchWithHtml(VALID_HTML);
+      await downloadPage!.openCreateJobDialog();
+      await downloadPage!.fillUrl('https://example.com/gallery/reset');
+      await downloadPage!.triggerScrape();
+      await downloadPage!.waitForScrapeResult();
+      expect(await downloadPage!.isStartEnabled()).toBe(true);
 
-  //     await downloadPage!.triggerCancel();
-  //     await downloadPage!.waitForDialogToClose();
+      await downloadPage!.triggerCancel();
+      await downloadPage!.waitForDialogToClose();
 
-  //     await downloadPage!.openCreateJobDialog();
-  //     expect(await downloadPage!.getUrlValue()).toBe('');
-  //     expect(await downloadPage!.isStartEnabled()).toBe(false);
-  //     expect(await downloadPage!.hasScrapeResult()).toBe(false);
-  //   });
-  // });
+      await downloadPage!.openCreateJobDialog();
+      expect(await downloadPage!.getUrlValue()).toBe('');
+      expect(await downloadPage!.isStartEnabled()).toBe(false);
+      expect(await downloadPage!.hasScrapeResult()).toBe(false);
+    });
+  });
 
   test.describe('DownloadPanel crawl jobs', () => {
     const crawlJob = (overrides: Partial<CrawlJobStub> = {}): CrawlJobStub => ({
@@ -153,27 +153,27 @@ test.describe('Download workflow (docs/1-5-1, 1-5-2)', () => {
       ]
     });
 
-    // test('creates a crawl job card after starting download', async () => {
-    //   const job = crawlJob({ jobId: 'job-1', totalImages: 3 });
+    test('creates a crawl job card after starting download', async () => {
+      const job = crawlJob({ jobId: 'job-1', totalImages: 3 });
 
-    //   await downloadPage!.stubFetchWithHtml(VALID_HTML);
-    //   await downloadPage!.setupCrawlStubs(job);
-    //   await downloadPage!.openCreateJobDialog();
-    //   await downloadPage!.fillUrl('https://example.com/gallery/start');
-    //   await downloadPage!.triggerScrape();
-    //   await downloadPage!.waitForScrapeResult();
-    //   await downloadPage!.triggerStart();
-    //   await downloadPage!.waitForDialogToClose();
-    //   await downloadPage!.waitForJobCard(job.jobId);
+      await downloadPage!.stubFetchWithHtml(VALID_HTML);
+      await downloadPage!.setupCrawlStubs(job);
+      await downloadPage!.openCreateJobDialog();
+      await downloadPage!.fillUrl('https://example.com/gallery/start');
+      await downloadPage!.triggerScrape();
+      await downloadPage!.waitForScrapeResult();
+      await downloadPage!.triggerStart();
+      await downloadPage!.waitForDialogToClose();
+      await downloadPage!.waitForJobCard(job.jobId);
 
-    //   const startCalls = await downloadPage!.getStartCalls();
-    //   expect(startCalls).toContain('https://example.com/gallery/start');
+      const startCalls = await downloadPage!.getStartCalls();
+      expect(startCalls).toContain('https://example.com/gallery/start');
 
-    //   const card = await downloadPage!.getJobCard(job.jobId);
-    //   expect((await card.title().textContent()) ?? '').toContain(job.title);
-    //   expect((await card.progressText().textContent()) ?? '').toContain('0');
-    //   expect((await card.status().textContent()) ?? '').toMatch(/pending|queued/i);
-    // });
+      const card = await downloadPage!.getJobCard(job.jobId);
+      expect((await card.title().textContent()) ?? '').toContain(job.title);
+      expect((await card.progressText().textContent()) ?? '').toContain('0');
+      expect((await card.status().textContent()) ?? '').toMatch(/pending|queued/i);
+    });
 
     // test('updates progress and marks completion', async () => {
     //   const job = crawlJob({ jobId: 'job-progress', totalImages: 5 });

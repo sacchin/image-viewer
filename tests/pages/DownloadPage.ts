@@ -22,6 +22,16 @@ export interface ProgressEvent {
   message?: string;
 }
 
+export interface MockFileSystem {
+  folders: Set<string>;
+  files: Map<string, { path: string; content?: string }>;
+  existingFolders: Set<string>;
+}
+
+export interface DownloadSettings {
+  defaultDownloadPath: string;
+}
+
 export class DownloadPage {
   private page: Page;
   private fetchStub: any = null;
@@ -280,9 +290,137 @@ export class DownloadPage {
       delete (window as any).__progressListeners;
       delete (window as any).__fetchCallCount;
       delete (window as any).__mockHtml;
+      delete (window as any).__mockFS;
+      delete (window as any).__downloadSettings;
 
       // Note: We don't restore fetchUrl as Object.defineProperty makes it harder to restore
       // The test framework will reload the page between tests anyway
     });
+  }
+
+  async setupFileSystemMock(settings?: DownloadSettings): Promise<void> {
+    const defaultSettings = {
+      defaultDownloadPath: 'C:\\Users\\TestUser\\Downloads'
+    };
+
+    await this.page.evaluate((config) => {
+      // Initialize mock filesystem
+      (window as any).__mockFS = {
+        folders: new Set<string>(),
+        files: new Map<string, any>(),
+        existingFolders: new Set<string>()
+      };
+
+      // Set download settings
+      (window as any).__downloadSettings = config;
+
+      // Mock the settings API
+      if (!window.electronAPI) {
+        (window as any).electronAPI = {};
+      }
+
+      window.electronAPI.getSettings = async () => {
+        return (window as any).__downloadSettings;
+      };
+
+      // Helper function to sanitize folder names
+      (window as any).__sanitizeFolderName = (title: string): string => {
+        if (!title || title.trim() === '') {
+          return `gallery_${Date.now()}`;
+        }
+
+        // Trim first to handle leading/trailing spaces
+        let safe = title.trim();
+        // Windows forbidden characters
+        safe = safe.replace(/[<>:"/\\|?*]/g, '_');
+        // Replace consecutive spaces/underscores with single underscore
+        safe = safe.replace(/[\s_]+/g, '_');
+        // Remove leading/trailing dots
+        safe = safe.replace(/^\.+|\.+$/g, '');
+        // Remove leading/trailing underscores (from replaced spaces)
+        safe = safe.replace(/^_+|_+$/g, '');
+        // Limit length
+        if (safe.length > 200) {
+          safe = safe.substring(0, 200);
+        }
+
+        return safe || `gallery_${Date.now()}`;
+      };
+
+      // Override startCrawl to simulate folder creation
+      const originalStartCrawl = window.electronAPI.startCrawl;
+      window.electronAPI.startCrawl = async (url: string, data: any) => {
+        const fs = (window as any).__mockFS;
+        const settings = (window as any).__downloadSettings;
+        const sanitize = (window as any).__sanitizeFolderName;
+
+        // Sanitize folder name
+        const folderName = sanitize(data.title || 'Untitled');
+        const folderPath = `${settings.defaultDownloadPath}\\${folderName}`;
+
+        // Check if folder exists
+        if (!fs.existingFolders.has(folderPath)) {
+          // Create new folder
+          fs.folders.add(folderPath);
+        }
+
+        // Simulate downloading files
+        const imageUrls = data.imageUrls || [];
+        for (let i = 0; i < imageUrls.length; i++) {
+          const fileName = `${String(i + 1).padStart(3, '0')}.jpg`;
+          const filePath = `${folderPath}\\${fileName}`;
+          fs.files.set(filePath, { path: filePath, content: `mock-image-${i + 1}` });
+        }
+
+        // Call original if it exists
+        if (originalStartCrawl && typeof originalStartCrawl === 'function') {
+          return await originalStartCrawl(url, data);
+        }
+
+        // Or add to __startCalls if available
+        if ((window as any).__startCalls) {
+          (window as any).__startCalls.push(url);
+        }
+
+        return { jobId: `job-${Date.now()}` };
+      };
+    }, settings || defaultSettings);
+  }
+
+  async mockExistingFolder(folderPath: string): Promise<void> {
+    await this.page.evaluate((path) => {
+      const fs = (window as any).__mockFS;
+      if (fs) {
+        fs.existingFolders.add(path);
+        fs.folders.add(path);
+      }
+    }, folderPath);
+  }
+
+  async getCreatedFolders(): Promise<string[]> {
+    return await this.page.evaluate(() => {
+      const fs = (window as any).__mockFS;
+      return fs ? Array.from(fs.folders) : [];
+    });
+  }
+
+  async getDownloadedFiles(): Promise<Array<{ path: string; content?: string }>> {
+    return await this.page.evaluate(() => {
+      const fs = (window as any).__mockFS;
+      if (!fs) return [];
+
+      const files: Array<{ path: string; content?: string }> = [];
+      fs.files.forEach((value: any) => {
+        files.push(value);
+      });
+      return files;
+    });
+  }
+
+  async getSanitizedFolderName(title: string): Promise<string> {
+    return await this.page.evaluate((t) => {
+      const sanitize = (window as any).__sanitizeFolderName;
+      return sanitize ? sanitize(t) : t;
+    }, title);
   }
 }

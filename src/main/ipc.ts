@@ -93,6 +93,39 @@ function sendProgressUpdate(mainWindow: BrowserWindow | null, job: DownloadJob, 
   });
 }
 
+// Helper function to sanitize folder names for file system
+function sanitizeFolderName(title: string): string {
+  // Replace Windows forbidden characters
+  let safe = title.replace(/[<>:"/\\|?*]/g, '_');
+  // Replace consecutive spaces or underscores with single underscore
+  safe = safe.replace(/[\s_]+/g, '_');
+  // Remove leading/trailing whitespace and dots
+  safe = safe.trim().replace(/^\.+|\.+$/g, '');
+  // Limit length to 200 characters
+  if (safe.length > 200) {
+    safe = safe.substring(0, 200);
+  }
+  // Fallback if empty
+  return safe || `gallery_${Date.now()}`;
+}
+
+// Helper function to get next available file number in directory
+async function getNextFileNumber(dirPath: string): Promise<number> {
+  try {
+    const files = await fsPromises.readdir(dirPath);
+    const numbers = files
+      .map(file => {
+        const match = file.match(/^(\d+)\.[^.]+$/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(num => !isNaN(num));
+
+    return numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
+  } catch (error) {
+    return 1;
+  }
+}
+
 // Background download function
 async function processDownloadJob(jobId: string, mainWindow: BrowserWindow | null) {
   const job = downloadJobs.get(jobId);
@@ -110,6 +143,9 @@ async function processDownloadJob(jobId: string, mainWindow: BrowserWindow | nul
     return;
   }
 
+  // Get starting file number for existing directory
+  let fileNumber = await getNextFileNumber(job.outputDir);
+
   // Download images
   for (let i = 0; i < job.imageUrls.length; i++) {
     if (job.cancelled) {
@@ -120,12 +156,13 @@ async function processDownloadJob(jobId: string, mainWindow: BrowserWindow | nul
 
     const imageUrl = job.imageUrls[i];
     const ext = path.extname(new URL(imageUrl).pathname) || '.jpg';
-    const filename = `${job.title.replace(/[^a-z0-9]/gi, '_')}_${String(i + 1).padStart(3, '0')}${ext}`;
+    const filename = `${String(fileNumber).padStart(3, '0')}${ext}`;
     const outputPath = path.join(job.outputDir, filename);
 
     try {
       await downloadImage(imageUrl, outputPath);
       job.completed++;
+      fileNumber++;
       sendProgressUpdate(mainWindow, job);
     } catch (error) {
       console.error(`Failed to download image ${i + 1}:`, error);
@@ -180,9 +217,10 @@ export function setupIpcHandlers(): void {
     // Generate job ID
     const jobId = `job-${Date.now()}-${++jobCounter}`;
 
-    // Create download directory using settings
+    // Create download directory using settings and title-based folder name
     const downloadPath = settingsManager.getSettings().defaultDownloadPath;
-    const jobDir = path.join(downloadPath, jobId);
+    const safeFolderName = sanitizeFolderName(data?.title || 'Untitled');
+    const jobDir = path.join(downloadPath, safeFolderName);
 
     // Create job
     const job: DownloadJob = {
