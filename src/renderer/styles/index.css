@@ -48,4 +48,18 @@ button {
   --border-color: #dee2e6;
   --hover-bg: #e9ecef;
   --primary-bg: #e7f2ff;
+
+  /* Additional theme variables */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-hover: #e9ecef;
+  --bg-active: #d3e3f4;
+  --text-primary: #333333;
+  --button-bg: #ffffff;
+  --button-hover: #f0f0f0;
+  --button-active: #e0e0e0;
+  --scrollbar-track: #f1f1f1;
+  --scrollbar-thumb: #c1c1c1;
+  --scrollbar-thumb-hover: #a8a8a8;
+  --error-color: #dc3545;
 }

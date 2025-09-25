@@ -5,13 +5,32 @@
 }
 
 .explore-panel-sidebar {
-  width: 250px;
+  width: 300px;
+  min-width: 200px;
   border-right: 1px solid var(--border-color);
   background-color: var(--secondary-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.explore-panel-sidebar-top {
+  flex: 1;
+  min-height: 200px;
+  border-bottom: 1px solid var(--border-color);
   overflow-y: auto;
+}
+
+.explore-panel-sidebar-bottom {
+  flex: 1;
+  min-height: 200px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .explore-panel-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
