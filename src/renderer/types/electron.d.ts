@@ -17,6 +17,9 @@ declare global {
       cancelCrawling: () => Promise<any>;
       onCrawlProgress?: (callback: (progress: any) => void) => void | (() => void);
       onCrawlingProgress: (callback: (progress: any) => void) => void;
+
+      // Fetch URL from main process to avoid CORS issues
+      fetchUrl: (url: string) => Promise<{ success: boolean; html?: string; error?: string }>;
     };
   }
 }

@@ -129,34 +129,71 @@ export class DownloadPage {
     this.fetchCallCount = 0;
 
     await this.page.evaluate((htmlContent) => {
-      const originalFetch = window.fetch;
-      (window as any).__originalFetch = originalFetch;
       (window as any).__fetchCallCount = 0;
 
-      window.fetch = async (url: RequestInfo | URL, init?: RequestInit) => {
-        (window as any).__fetchCallCount++;
+      // Ensure electronAPI exists
+      if (!window.electronAPI) {
+        console.warn('electronAPI not found, creating mock');
+        (window as any).electronAPI = {};
+      }
 
-        return new Response(htmlContent, {
-          status: 200,
-          headers: { 'Content-Type': 'text/html' }
-        });
+      // Override the fetchUrl method completely
+      console.log('Overriding electronAPI.fetchUrl with mock');
+
+      // Simply replace the function rather than using defineProperty
+      window.electronAPI.fetchUrl = async (url: string) => {
+        (window as any).__fetchCallCount++;
+        console.log('Mock fetchUrl called with:', url);
+        console.log('Returning HTML with length:', htmlContent.length);
+
+        // Store the scraped result globally for test assertions
+        const result = {
+          success: true,
+          html: htmlContent
+        };
+
+        return result;
       };
+
+      console.log('Mock fetchUrl installed successfully');
     }, html);
+
+    // Wait a bit to ensure the mock is set up
+    await this.page.waitForTimeout(100);
   }
 
   async stubFetchWithError(errorMessage: string): Promise<void> {
     this.fetchCallCount = 0;
 
     await this.page.evaluate((message) => {
-      const originalFetch = window.fetch;
-      (window as any).__originalFetch = originalFetch;
       (window as any).__fetchCallCount = 0;
 
-      window.fetch = async (url: RequestInfo | URL, init?: RequestInit) => {
+      // Ensure electronAPI exists
+      if (!window.electronAPI) {
+        console.warn('electronAPI not found, creating mock');
+        (window as any).electronAPI = {};
+      }
+
+      // Override the fetchUrl method completely
+      console.log('Overriding electronAPI.fetchUrl with error mock');
+
+      // Simply replace the function rather than using defineProperty
+      window.electronAPI.fetchUrl = async (url: string) => {
         (window as any).__fetchCallCount++;
-        throw new Error(message);
+        console.log('Mock fetchUrl error called with:', url);
+        console.log('Returning error:', message);
+
+        return {
+          success: false,
+          error: message
+        };
       };
+
+      console.log('Mock error fetchUrl installed successfully');
     }, errorMessage);
+
+    // Wait a bit to ensure the mock is set up
+    await this.page.waitForTimeout(100);
   }
 
   async getFetchCallCount(): Promise<number> {
@@ -236,23 +273,16 @@ export class DownloadPage {
     await this.page.waitForTimeout(50);
   }
 
-  async restoreFetch(): Promise<void> {
-    await this.page.evaluate(() => {
-      if ((window as any).__originalFetch) {
-        window.fetch = (window as any).__originalFetch;
-        delete (window as any).__originalFetch;
-        delete (window as any).__fetchCallCount;
-      }
-    });
-  }
-
   async restoreElectronApi(): Promise<void> {
     await this.page.evaluate(() => {
       delete (window as any).__startCalls;
       delete (window as any).__crawlJobs;
       delete (window as any).__progressListeners;
+      delete (window as any).__fetchCallCount;
+      delete (window as any).__mockHtml;
 
-      // Note: We don't delete electronAPI itself as it might be needed by the app
+      // Note: We don't restore fetchUrl as Object.defineProperty makes it harder to restore
+      // The test framework will reload the page between tests anyway
     });
   }
 }

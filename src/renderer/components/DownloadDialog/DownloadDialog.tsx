@@ -103,13 +103,13 @@ export const DownloadDialog: React.FC<DownloadDialogProps> = ({ isOpen, onClose,
     setGlobalScrapeResult(null);
 
     try {
-      const response = await fetch(trimmedUrl, { method: 'GET' });
+      const response = await window.electronAPI.fetchUrl(trimmedUrl);
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch page (status ' + response.status + ').');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch page');
       }
 
-      const html = await response.text();
+      const html = response.html!;
       const data = await scrapeGalleryData(html);
       const warningMessage = buildWarningMessage(data.warnings);
 

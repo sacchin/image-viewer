@@ -25,5 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_: Electron.IpcRendererEvent, progress: any) => callback(progress);
     ipcRenderer.on('crawling-progress', handler);
     return () => ipcRenderer.off('crawling-progress', handler);
-  }
+  },
+
+  // Fetch URL from main process to avoid CORS issues
+  fetchUrl: (url: string) => ipcRenderer.invoke('fetch-url', url)
 });

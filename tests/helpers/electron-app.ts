@@ -10,7 +10,8 @@ export class ElectronAppHelper {
 
     const env = {
       ...process.env,
-      NODE_ENV: 'test'
+      NODE_ENV: 'test',
+      IS_TEST: 'true'
     } as NodeJS.ProcessEnv;
 
     if ('ELECTRON_RUN_AS_NODE' in env) {
