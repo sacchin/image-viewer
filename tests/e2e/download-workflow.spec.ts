@@ -92,7 +92,9 @@ test.describe('Download workflow (docs/1-5-1, 1-5-2)', () => {
       expect(await downloadPage!.isStartEnabled()).toBe(false);
       expect(await downloadPage!.getFetchCallCount()).toBe(0);
     });
+  });
 
+  // test.describe('DownloadDialog - Additional tests', () => {
     // test('surfaces network errors and keeps start disabled', async () => {
     //   await downloadPage!.stubFetchWithError('Network unreachable');
     //   await downloadPage!.openCreateJobDialog();
