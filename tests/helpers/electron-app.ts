@@ -8,12 +8,19 @@ export class ElectronAppHelper {
   async launch(): Promise<void> {
     const mainPath = path.join(__dirname, '../../dist/main/index.js');
 
+    const env = {
+      ...process.env,
+      NODE_ENV: 'test',
+      IS_TEST: 'true'
+    } as NodeJS.ProcessEnv;
+
+    if ('ELECTRON_RUN_AS_NODE' in env) {
+      delete env.ELECTRON_RUN_AS_NODE;
+    }
+
     this.app = await electron.launch({
       args: [mainPath],
-      env: {
-        ...process.env,
-        NODE_ENV: 'test'
-      }
+      env
     });
 
     this.window = await this.app.firstWindow();
