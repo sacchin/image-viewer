@@ -28,5 +28,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Fetch URL from main process to avoid CORS issues
-  fetchUrl: (url: string) => ipcRenderer.invoke('fetch-url', url)
+  fetchUrl: (url: string) => ipcRenderer.invoke('fetch-url', url),
+
+  // Settings operations
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),
+  resetSettings: () => ipcRenderer.invoke('reset-settings'),
+  getDefaultSettings: () => ipcRenderer.invoke('get-default-settings')
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './SettingPanel.css';
 
 interface Settings {
@@ -9,6 +9,22 @@ export const SettingPanel: React.FC = () => {
   const [settings, setSettings] = useState<Settings>({
     defaultDownloadPath: 'C:\\Users\\Downloads'
   });
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load settings on component mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const loadedSettings = await window.electronAPI.getSettings();
+        if (loadedSettings) {
+          setSettings(loadedSettings);
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      }
+    };
+    loadSettings();
+  }, []);
 
   const handleSettingChange = <K extends keyof Settings>(
     key: K,
@@ -20,14 +36,26 @@ export const SettingPanel: React.FC = () => {
     }));
   };
 
-  const handleSaveSettings = () => {
-    console.log('Saving settings:', settings);
+  const handleSaveSettings = async () => {
+    setIsSaving(true);
+    try {
+      await window.electronAPI.saveSettings(settings);
+      console.log('Settings saved successfully');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleResetSettings = () => {
-    setSettings({
-      defaultDownloadPath: 'C:\\Users\\Downloads'
-    });
+  const handleResetSettings = async () => {
+    try {
+      const defaultSettings = await window.electronAPI.resetSettings();
+      setSettings(defaultSettings);
+      console.log('Settings reset to defaults');
+    } catch (error) {
+      console.error('Failed to reset settings:', error);
+    }
   };
 
   return (
@@ -64,8 +92,9 @@ export const SettingPanel: React.FC = () => {
         <button
           className="setting-btn setting-btn-primary"
           onClick={handleSaveSettings}
+          disabled={isSaving}
         >
-          Save Settings
+          {isSaving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
     </div>

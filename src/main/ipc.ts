@@ -5,6 +5,7 @@ import { promises as fsPromises } from 'fs';
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
+import { settingsManager } from './settings';
 
 // Download job tracking
 interface DownloadJob {
@@ -179,9 +180,9 @@ export function setupIpcHandlers(): void {
     // Generate job ID
     const jobId = `job-${Date.now()}-${++jobCounter}`;
 
-    // Create download directory
-    const downloadsDir = path.join(process.cwd(), 'downloads');
-    const jobDir = path.join(downloadsDir, jobId);
+    // Create download directory using settings
+    const downloadPath = settingsManager.getSettings().defaultDownloadPath;
+    const jobDir = path.join(downloadPath, jobId);
 
     // Create job
     const job: DownloadJob = {
@@ -238,5 +239,26 @@ export function setupIpcHandlers(): void {
       const message = error instanceof Error ? error.message : 'Unknown error occurred while fetching';
       return { success: false, error: message };
     }
+  });
+
+  // Settings operations
+  ipcMain.handle('get-settings', async () => {
+    return settingsManager.getSettings();
+  });
+
+  ipcMain.handle('save-settings', async (_, settings: any) => {
+    settingsManager.saveSettings(settings);
+    return { success: true };
+  });
+
+  ipcMain.handle('reset-settings', async () => {
+    settingsManager.resetToDefaults();
+    return settingsManager.getSettings();
+  });
+
+  ipcMain.handle('get-default-settings', async () => {
+    return {
+      defaultDownloadPath: settingsManager.getDefaultDownloadPath()
+    };
   });
 }

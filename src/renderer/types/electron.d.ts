@@ -20,6 +20,12 @@ declare global {
 
       // Fetch URL from main process to avoid CORS issues
       fetchUrl: (url: string) => Promise<{ success: boolean; html?: string; error?: string }>;
+
+      // Settings operations
+      getSettings: () => Promise<any>;
+      saveSettings: (settings: any) => Promise<{ success: boolean }>;
+      resetSettings: () => Promise<any>;
+      getDefaultSettings: () => Promise<any>;
     };
   }
 }
