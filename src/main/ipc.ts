@@ -299,4 +299,119 @@ export function setupIpcHandlers(): void {
       defaultDownloadPath: settingsManager.getDefaultDownloadPath()
     };
   });
+
+  // Folder and file operations for image exploration
+  ipcMain.handle('read-folder-tree', async (_, folderPath: string) => {
+    try {
+      const stats = await fsPromises.stat(folderPath);
+      if (!stats.isDirectory()) {
+        return null;
+      }
+
+      const readDirRecursive = async (dirPath: string, depth: number = 0, maxDepth: number = 3): Promise<any> => {
+        const name = path.basename(dirPath);
+        const item: any = {
+          name,
+          path: dirPath,
+          type: 'folder',
+          children: []
+        };
+
+        if (depth < maxDepth) {
+          try {
+            const files = await fsPromises.readdir(dirPath);
+            for (const file of files) {
+              const filePath = path.join(dirPath, file);
+              try {
+                const fileStat = await fsPromises.stat(filePath);
+                if (fileStat.isDirectory()) {
+                  // Recursively read subdirectories
+                  const child = await readDirRecursive(filePath, depth + 1, maxDepth);
+                  item.children.push(child);
+                }
+              } catch (err) {
+                // Skip files/folders we can't access
+                console.warn(`Cannot access ${filePath}:`, err);
+              }
+            }
+          } catch (err) {
+            console.warn(`Cannot read directory ${dirPath}:`, err);
+          }
+        }
+
+        return item;
+      };
+
+      return await readDirRecursive(folderPath);
+    } catch (error) {
+      console.error('Error reading folder tree:', error);
+      return null;
+    }
+  });
+
+  ipcMain.handle('get-folder-contents', async (_, folderPath: string) => {
+    try {
+      const files = await fsPromises.readdir(folderPath);
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+      const contents = [];
+
+      for (const file of files) {
+        const filePath = path.join(folderPath, file);
+        try {
+          const stats = await fsPromises.stat(filePath);
+          const ext = path.extname(file).toLowerCase();
+
+          if (stats.isFile() && imageExtensions.includes(ext)) {
+            contents.push({
+              name: file,
+              path: filePath,
+              type: 'image',
+              size: stats.size,
+              modified: stats.mtime
+            });
+          }
+        } catch (err) {
+          console.warn(`Cannot access ${filePath}:`, err);
+        }
+      }
+
+      // Sort by name
+      contents.sort((a, b) => a.name.localeCompare(b.name));
+
+      return contents;
+    } catch (error) {
+      console.error('Error getting folder contents:', error);
+      return [];
+    }
+  });
+
+  ipcMain.handle('read-image-file', async (_, imagePath: string) => {
+    try {
+      const data = await fsPromises.readFile(imagePath);
+      const ext = path.extname(imagePath).toLowerCase();
+
+      // Determine MIME type
+      const mimeTypes: { [key: string]: string } = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.bmp': 'image/bmp',
+        '.webp': 'image/webp',
+        '.svg': 'image/svg+xml'
+      };
+
+      const mimeType = mimeTypes[ext] || 'image/jpeg';
+      const base64 = data.toString('base64');
+
+      return {
+        data: `data:${mimeType};base64,${base64}`,
+        size: data.length,
+        type: mimeType
+      };
+    } catch (error) {
+      console.error('Error reading image file:', error);
+      return null;
+    }
+  });
 }

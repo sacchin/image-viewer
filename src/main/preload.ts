@@ -34,5 +34,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),
   resetSettings: () => ipcRenderer.invoke('reset-settings'),
-  getDefaultSettings: () => ipcRenderer.invoke('get-default-settings')
+  getDefaultSettings: () => ipcRenderer.invoke('get-default-settings'),
+
+  // Folder and image operations
+  readFolderTree: (folderPath: string) => ipcRenderer.invoke('read-folder-tree', folderPath),
+  getFolderContents: (folderPath: string) => ipcRenderer.invoke('get-folder-contents', folderPath),
+  readImageFile: (imagePath: string) => ipcRenderer.invoke('read-image-file', imagePath)
 });

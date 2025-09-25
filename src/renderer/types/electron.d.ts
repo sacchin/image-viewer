@@ -26,6 +26,11 @@ declare global {
       saveSettings: (settings: any) => Promise<{ success: boolean }>;
       resetSettings: () => Promise<any>;
       getDefaultSettings: () => Promise<any>;
+
+      // Folder and image operations
+      readFolderTree: (folderPath: string) => Promise<any>;
+      getFolderContents: (folderPath: string) => Promise<any[]>;
+      readImageFile: (imagePath: string) => Promise<{ data: string; size: number; type: string } | null>;
     };
   }
 }
