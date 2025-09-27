@@ -1,145 +1,129 @@
 import { test, expect } from '@playwright/test';
 import { ElectronAppHelper } from '../helpers/electron-app';
-import { MainPage } from '../pages/MainPage';
 
 test.describe('UI Components Initial Display', () => {
   let electronApp: ElectronAppHelper;
-  let mainPage: MainPage;
 
   test.beforeEach(async () => {
     electronApp = new ElectronAppHelper();
     await electronApp.launch();
-
-    const window = electronApp.getWindow();
-    mainPage = new MainPage(window);
-    await mainPage.waitForLoad();
   });
 
   test.afterEach(async () => {
     await electronApp.close();
   });
 
-  test('✅ ツールバーが表示される', async () => {
-    const isVisible = await mainPage.isToolbarVisible();
-    expect(isVisible).toBe(true);
+  test('✅ サイドメニューが表示される', async () => {
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
-    const folderOpenBtn = await mainPage.toolbar.folderOpenButton().isVisible();
-    expect(folderOpenBtn).toBe(true);
+    // サイドメニューが表示されているか確認
+    const sideMenu = await page.locator('.side-menu').isVisible();
+    expect(sideMenu).toBe(true);
 
-    const viewModeBtn = await mainPage.toolbar.viewModeButton().isVisible();
-    expect(viewModeBtn).toBe(true);
-
-    const sortBtn = await mainPage.toolbar.sortButton().isVisible();
-    expect(sortBtn).toBe(true);
-
-    const filterBtn = await mainPage.toolbar.filterButton().isVisible();
-    expect(filterBtn).toBe(true);
-
-    const searchInput = await mainPage.toolbar.searchInput().isVisible();
-    expect(searchInput).toBe(true);
+    // 4つのメニュー項目が存在するか確認
+    const menuItems = await page.locator('[data-menu-item]').count();
+    expect(menuItems).toBe(4);
   });
 
-  test('✅ サイドバー（フォルダツリー）が表示される', async () => {
-    const isVisible = await mainPage.isSidebarVisible();
-    expect(isVisible).toBe(true);
+  test('✅ 初期状態でExploreパネルが表示される', async () => {
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
-    const folderTree = await mainPage.sidebar.folderTree().isVisible();
-    expect(folderTree).toBe(true);
-  });
+    // デフォルトでExploreパネルがアクティブか確認
+    const activeItem = await page.locator('[data-menu-item="explore"].active').isVisible();
+    expect(activeItem).toBe(true);
 
-  test('✅ メインコンテンツエリア（画像グリッド）が表示される', async () => {
-    const isVisible = await mainPage.isImageGridVisible();
-    expect(isVisible).toBe(true);
-
-    const container = await mainPage.imageGrid.container().isVisible();
-    expect(container).toBe(true);
+    // Exploreパネルが表示されているか確認
+    const explorePanel = await page.locator('[data-panel="explore"]').isVisible();
+    expect(explorePanel).toBe(true);
   });
 
   test('✅ ステータスバーが表示される', async () => {
-    const isVisible = await mainPage.isStatusBarVisible();
-    expect(isVisible).toBe(true);
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
-    const statusText = await mainPage.getStatusText();
-    expect(statusText.itemCount).toBeDefined();
-    expect(statusText.zoomLevel).toBeDefined();
+    // ステータスバーが表示されているか確認
+    const statusBar = await page.locator('[data-testid="status-bar"]').isVisible();
+    expect(statusBar).toBe(true);
+
+    // 現在のパネル名が表示されているか確認
+    const currentPanel = await page.locator('.current-panel').textContent();
+    expect(currentPanel).toContain('Explore');
   });
 
-  test('✅ 初期状態では画像が選択されていない', async () => {
-    const selectedCount = await mainPage.getSelectedImageCount();
-    expect(selectedCount).toBe(0);
+  test('✅ レイアウト構造が正しい', async () => {
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
-    const statusText = await mainPage.getStatusText();
-    expect(statusText.selectedCount).toContain('0');
+    // メインレイアウトコンテナが存在するか
+    const layoutMain = await page.locator('.layout-main').isVisible();
+    expect(layoutMain).toBe(true);
+
+    // サイドバーとコンテンツエリアが存在するか
+    const layoutSidebar = await page.locator('.layout-sidebar').isVisible();
+    expect(layoutSidebar).toBe(true);
+
+    const layoutContent = await page.locator('.layout-content').isVisible();
+    expect(layoutContent).toBe(true);
+
+    // フッターが存在するか
+    const layoutFooter = await page.locator('.layout-footer').isVisible();
+    expect(layoutFooter).toBe(true);
   });
 
-  test('空の状態メッセージが表示される（画像がない場合）', async () => {
-    const imageCount = await mainPage.getImageCount();
+  test('✅ パネル切り替えが機能する', async () => {
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
-    if (imageCount === 0) {
-      const emptyState = await mainPage.imageGrid.emptyState().isVisible();
-      expect(emptyState).toBe(true);
-    }
+    // Downloadパネルに切り替え
+    await page.click('[data-menu-item="download"]');
+
+    // Downloadパネルがアクティブになったか確認
+    const downloadActive = await page.locator('[data-menu-item="download"].active').isVisible();
+    expect(downloadActive).toBe(true);
+
+    // Downloadパネルが表示されているか確認
+    const downloadPanel = await page.locator('[data-panel="download"]').isVisible();
+    expect(downloadPanel).toBe(true);
+
+    // ステータスバーの表示が更新されたか確認
+    const currentPanel = await page.locator('.current-panel').textContent();
+    expect(currentPanel).toContain('Download');
   });
 
-  test('各UIコンポーネントのレイアウトが正しい', async () => {
-    const window = electronApp.getWindow();
+  test('✅ 各パネルが独立して表示される', async () => {
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
-    const layout = await window.evaluate(() => {
-      const toolbar = document.querySelector('[data-testid="toolbar"]');
-      const sidebar = document.querySelector('[data-testid="sidebar"]');
-      const imageGrid = document.querySelector('[data-testid="image-grid"]');
-      const statusBar = document.querySelector('[data-testid="status-bar"]');
+    const panels = ['download', 'explore', 'log', 'setting'];
 
-      if (!toolbar || !sidebar || !imageGrid || !statusBar) {
-        return null;
+    for (const panel of panels) {
+      // パネルに切り替え
+      await page.click(`[data-menu-item="${panel}"]`);
+      await page.waitForTimeout(100);
+
+      // 該当パネルのみが表示されているか確認
+      for (const p of panels) {
+        const panelVisible = await page.locator(`[data-panel="${p}"]`).isVisible();
+        if (p === panel) {
+          expect(panelVisible).toBe(true);
+        } else {
+          expect(panelVisible).toBe(false);
+        }
       }
-
-      const toolbarRect = toolbar.getBoundingClientRect();
-      const sidebarRect = sidebar.getBoundingClientRect();
-      const imageGridRect = imageGrid.getBoundingClientRect();
-      const statusBarRect = statusBar.getBoundingClientRect();
-
-      return {
-        toolbar: { top: toolbarRect.top, height: toolbarRect.height },
-        sidebar: { left: sidebarRect.left, width: sidebarRect.width },
-        imageGrid: { left: imageGridRect.left, width: imageGridRect.width },
-        statusBar: { bottom: statusBarRect.bottom, height: statusBarRect.height }
-      };
-    });
-
-    expect(layout).not.toBeNull();
-    if (layout) {
-      expect(layout.toolbar.top).toBe(0);
-      expect(layout.sidebar.left).toBeGreaterThanOrEqual(0);
-      expect(layout.imageGrid.left).toBeGreaterThan(layout.sidebar.width);
     }
   });
 
-  test('検索入力フィールドがフォーカス可能', async () => {
-    const searchInput = mainPage.toolbar.searchInput();
-    await searchInput.focus();
+  test('✅ ウィンドウサイズが適切である', async () => {
+    const page = electronApp.getWindow();
 
-    const isFocused = await searchInput.evaluate((el: HTMLElement) => {
-      return document.activeElement === el;
-    });
+    const viewportSize = await page.viewportSize();
+    expect(viewportSize).toBeTruthy();
 
-    expect(isFocused).toBe(true);
-  });
-
-  test('初期状態でフィルターとソートのデフォルト値が設定されている', async () => {
-    const window = electronApp.getWindow();
-
-    const defaultSettings = await window.evaluate(() => {
-      const sortBtn = document.querySelector('[data-testid="sort-btn"]');
-      const filterBtn = document.querySelector('[data-testid="filter-btn"]');
-
-      return {
-        sortText: sortBtn?.textContent || '',
-        filterText: filterBtn?.textContent || ''
-      };
-    });
-
-    expect(defaultSettings.sortText).toBeTruthy();
-    expect(defaultSettings.filterText).toBeTruthy();
+    if (viewportSize) {
+      expect(viewportSize.width).toBeGreaterThanOrEqual(800);
+      expect(viewportSize.height).toBeGreaterThanOrEqual(600);
+    }
   });
 });

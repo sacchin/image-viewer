@@ -63,8 +63,8 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
     const container = containerRef.current;
     const image = imageRef.current;
 
-    const containerWidth = container.clientWidth - 40; // padding
-    const containerHeight = container.clientHeight - 80; // padding + toolbar
+    const containerWidth = container.clientWidth - 100; // padding + toolbar width (80px toolbar + 20px padding)
+    const containerHeight = container.clientHeight - 40; // padding
 
     const imageWidth = image.naturalWidth;
     const imageHeight = image.naturalHeight;
@@ -180,38 +180,6 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
 
   return (
     <div className="image-preview-container" ref={containerRef}>
-      <div className="image-preview-toolbar">
-        <button
-          className="toolbar-button"
-          onClick={handleZoomOut}
-          title="Zoom Out"
-        >
-          ➖
-        </button>
-        <button
-          className="toolbar-button"
-          onClick={handleZoomIn}
-          title="Zoom In"
-        >
-          ➕
-        </button>
-        <button
-          className="toolbar-button"
-          onClick={handleFit}
-          title="Fit to Window"
-        >
-          ⬜
-        </button>
-        <button
-          className="toolbar-button"
-          onClick={handleActualSize}
-          title="Actual Size"
-        >
-          1:1
-        </button>
-        <span className="zoom-level">{Math.round(scale * 100)}%</span>
-      </div>
-
       <div
         className="image-preview-viewport"
         ref={viewportRef}
@@ -243,6 +211,38 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
             }}
           />
         </div>
+      </div>
+
+      <div className="image-preview-toolbar">
+        <button
+          className="toolbar-button"
+          onClick={handleZoomOut}
+          title="Zoom Out"
+        >
+          ➖
+        </button>
+        <button
+          className="toolbar-button"
+          onClick={handleZoomIn}
+          title="Zoom In"
+        >
+          ➕
+        </button>
+        <button
+          className="toolbar-button"
+          onClick={handleFit}
+          title="Fit to Window"
+        >
+          ⬜
+        </button>
+        <button
+          className="toolbar-button"
+          onClick={handleActualSize}
+          title="Actual Size"
+        >
+          1:1
+        </button>
+        <span className="zoom-level">{Math.round(scale * 100)}%</span>
       </div>
     </div>
   );

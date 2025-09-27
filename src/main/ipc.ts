@@ -109,6 +109,36 @@ function sanitizeFolderName(title: string): string {
   return safe || `gallery_${Date.now()}`;
 }
 
+// Helper function for natural sorting (numeric-aware sorting)
+function naturalSort(a: string, b: string): number {
+  // Split strings into parts of numbers and non-numbers
+  const regex = /(\d+)|(\D+)/g;
+  const aParts = a.match(regex) || [];
+  const bParts = b.match(regex) || [];
+
+  // Compare each part
+  for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+    // If one string has fewer parts, it comes first
+    if (!aParts[i]) return -1;
+    if (!bParts[i]) return 1;
+
+    const aIsNum = /^\d+$/.test(aParts[i]);
+    const bIsNum = /^\d+$/.test(bParts[i]);
+
+    if (aIsNum && bIsNum) {
+      // Both parts are numbers, compare numerically
+      const diff = parseInt(aParts[i], 10) - parseInt(bParts[i], 10);
+      if (diff !== 0) return diff;
+    } else {
+      // At least one part is not a number, compare as strings
+      const diff = aParts[i].localeCompare(bParts[i]);
+      if (diff !== 0) return diff;
+    }
+  }
+
+  return 0;
+}
+
 // Helper function to get next available file number in directory
 async function getNextFileNumber(dirPath: string): Promise<number> {
   try {
@@ -375,8 +405,8 @@ export function setupIpcHandlers(): void {
         }
       }
 
-      // Sort by name
-      contents.sort((a, b) => a.name.localeCompare(b.name));
+      // Sort by name using natural sort (numeric-aware)
+      contents.sort((a, b) => naturalSort(a.name, b.name));
 
       return contents;
     } catch (error) {

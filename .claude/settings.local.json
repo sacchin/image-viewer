@@ -14,7 +14,8 @@
       "Bash(node:*)",
       "Bash(npx tsx:*)",
       "Bash(npm test)",
-      "Bash(npm run test:e2e:headed:*)"
+      "Bash(npm run test:e2e:headed:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
