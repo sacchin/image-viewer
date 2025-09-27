@@ -19,6 +19,7 @@
 .folder-tree-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: auto;
   padding: 4px 0;
 }
 
@@ -129,6 +130,7 @@
 
 .folder-tree-content::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 .folder-tree-content::-webkit-scrollbar-track {
@@ -142,4 +144,8 @@
 
 .folder-tree-content::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
+}
+
+.folder-tree-content::-webkit-scrollbar-corner {
+  background: transparent;
 }

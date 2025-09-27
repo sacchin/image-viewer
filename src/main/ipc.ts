@@ -308,7 +308,7 @@ export function setupIpcHandlers(): void {
         return null;
       }
 
-      const readDirRecursive = async (dirPath: string, depth: number = 0, maxDepth: number = 3): Promise<any> => {
+      const readDirRecursive = async (dirPath: string, depth: number = 0, maxDepth: number = 10): Promise<any> => {
         const name = path.basename(dirPath);
         const item: any = {
           name,
