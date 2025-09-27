@@ -1,6 +1,5 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron';
 import * as path from 'path';
-import { createMainMenu } from './menu';
 import { setupIpcHandlers } from './ipc';
 
 let mainWindow: BrowserWindow | null = null;
@@ -27,9 +26,8 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
-  // Set up menu
-  const menu = createMainMenu(mainWindow);
-  Menu.setApplicationMenu(menu);
+  // Remove menu bar
+  Menu.setApplicationMenu(null);
 
   mainWindow.on('closed', () => {
     mainWindow = null;

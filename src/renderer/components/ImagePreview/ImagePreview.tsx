@@ -244,10 +244,6 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
           />
         </div>
       </div>
-
-      <div className="image-preview-info">
-        <span className="image-path">{imagePath.split(/[/\\]/).pop()}</span>
-      </div>
     </div>
   );
 };

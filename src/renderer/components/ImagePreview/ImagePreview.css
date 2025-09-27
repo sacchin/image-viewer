@@ -80,24 +80,6 @@
   user-drag: none;
 }
 
-.image-preview-info {
-  padding: 8px 16px;
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.image-path {
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .image-preview-empty,
 .image-preview-loading,
 .image-preview-error {
