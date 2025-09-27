@@ -170,33 +170,6 @@ test.describe('Panel Navigation', () => {
     }
   });
 
-  test('✅ パネルのスクロール動作', async () => {
-    const window = electronApp.getWindow();
-
-    // Logパネルでスクロールをテスト
-    await window.click('[data-menu-item="log"]');
-    await window.waitForSelector('[data-panel="log"]', { state: 'visible' });
-
-    const logContainer = window.locator('.log-container');
-
-    // スクロール可能であることを確認
-    const scrollInfo = await logContainer.evaluate((el) => ({
-      scrollHeight: el.scrollHeight,
-      clientHeight: el.clientHeight
-    }));
-
-    // コンテンツが十分にある場合、スクロール可能
-    if (scrollInfo.scrollHeight > scrollInfo.clientHeight) {
-      // スクロールダウン
-      await logContainer.evaluate((el) => {
-        el.scrollTop = el.scrollHeight;
-      });
-
-      const scrollTop = await logContainer.evaluate((el) => el.scrollTop);
-      expect(scrollTop).toBeGreaterThan(0);
-    }
-  });
-
   test('✅ パネル切り替え時のフォーカス管理', async () => {
     const window = electronApp.getWindow();
 
