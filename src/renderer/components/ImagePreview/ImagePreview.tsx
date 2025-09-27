@@ -11,8 +11,12 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [fitMode, setFitMode] = useState<'fit' | 'actual'>('fit');
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (imagePath) {
@@ -75,32 +79,69 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
   const handleZoomIn = () => {
     setFitMode('actual');
     setScale(prevScale => Math.min(prevScale * 1.2, 5));
+    // Keep position when zooming
   };
 
   const handleZoomOut = () => {
     setFitMode('actual');
-    setScale(prevScale => Math.max(prevScale * 0.8, 0.1));
+    setScale(prevScale => {
+      const newScale = Math.max(prevScale * 0.8, 0.1);
+      // Reset position if zooming out to scale 1 or less
+      if (newScale <= 1) {
+        setPosition({ x: 0, y: 0 });
+      }
+      return newScale;
+    });
   };
 
   const handleFit = () => {
     setFitMode('fit');
     fitImageToContainer();
+    setPosition({ x: 0, y: 0 }); // Reset position when fitting
   };
 
   const handleActualSize = () => {
     setFitMode('actual');
     setScale(1);
+    setPosition({ x: 0, y: 0 }); // Reset position
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      if (e.deltaY < 0) {
-        handleZoomIn();
-      } else {
-        handleZoomOut();
-      }
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      handleZoomIn();
+    } else {
+      handleZoomOut();
     }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (scale > 1) {
+      setIsDragging(true);
+      setDragStart({
+        x: e.clientX - position.x,
+        y: e.clientY - position.y
+      });
+      e.preventDefault();
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && scale > 1) {
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
+      setPosition({ x: newX, y: newY });
+      e.preventDefault();
+    }
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    setIsDragging(false);
+    e.preventDefault();
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    setIsDragging(false);
   };
 
   if (!imagePath) {
@@ -171,7 +212,18 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
         <span className="zoom-level">{Math.round(scale * 100)}%</span>
       </div>
 
-      <div className="image-preview-viewport" onWheel={handleWheel}>
+      <div
+        className="image-preview-viewport"
+        ref={viewportRef}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
+        }}
+      >
         <div className="image-preview-content">
           <img
             ref={imageRef}
@@ -179,8 +231,10 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
             alt="Preview"
             className="preview-image"
             style={{
-              transform: `scale(${scale})`,
-              transformOrigin: 'center center'
+              transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+              transformOrigin: 'center center',
+              userSelect: 'none',
+              pointerEvents: scale > 1 ? 'auto' : 'none'
             }}
             onLoad={() => {
               if (fitMode === 'fit') {

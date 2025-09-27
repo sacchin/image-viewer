@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './FileList.css';
 
 interface FileItem {
@@ -17,7 +17,9 @@ interface FileListProps {
 const FileList: React.FC<FileListProps> = ({ folderPath, onFileSelect }) => {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const [loading, setLoading] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (folderPath) {
@@ -27,12 +29,59 @@ const FileList: React.FC<FileListProps> = ({ folderPath, onFileSelect }) => {
     }
   }, [folderPath]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (files.length === 0) return;
+
+      let newIndex = selectedIndex;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        newIndex = selectedIndex < files.length - 1 ? selectedIndex + 1 : selectedIndex;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        newIndex = selectedIndex > 0 ? selectedIndex - 1 : 0;
+      } else if (e.key === 'Enter' && selectedIndex >= 0 && selectedIndex < files.length) {
+        e.preventDefault();
+        const file = files[selectedIndex];
+        handleFileClick(file);
+        return;
+      } else {
+        return;
+      }
+
+      if (newIndex !== selectedIndex && newIndex >= 0 && newIndex < files.length) {
+        setSelectedIndex(newIndex);
+        const file = files[newIndex];
+        setSelectedFile(file.path);
+        onFileSelect(file); // 上下キーで選択されたファイルをプレビュー
+
+        // Scroll to the selected item
+        const fileListElement = listRef.current?.querySelector('.file-list');
+        const selectedElement = fileListElement?.children[newIndex] as HTMLElement;
+        if (selectedElement) {
+          selectedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    };
+
+    // Add event listener only when the file list has focus
+    const container = listRef.current;
+    if (container) {
+      container.addEventListener('keydown', handleKeyDown);
+      return () => {
+        container.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [files, selectedIndex, onFileSelect]);
+
   const loadFolderContents = async (path: string) => {
     setLoading(true);
     try {
       const contents = await window.electronAPI.getFolderContents(path);
       setFiles(contents);
       setSelectedFile(null);
+      setSelectedIndex(-1);
     } catch (error) {
       console.error('Failed to load folder contents:', error);
       setFiles([]);
@@ -41,8 +90,11 @@ const FileList: React.FC<FileListProps> = ({ folderPath, onFileSelect }) => {
     }
   };
 
-  const handleFileClick = (file: FileItem) => {
+  const handleFileClick = (file: FileItem, index?: number) => {
     setSelectedFile(file.path);
+    if (index !== undefined) {
+      setSelectedIndex(index);
+    }
     onFileSelect(file);
   };
 
@@ -88,16 +140,16 @@ const FileList: React.FC<FileListProps> = ({ folderPath, onFileSelect }) => {
   }
 
   return (
-    <div className="file-list-container">
+    <div className="file-list-container" ref={listRef} tabIndex={0}>
       <div className="file-list-header">
         <span className="file-count">{files.length} images</span>
       </div>
       <div className="file-list">
-        {files.map((file) => (
+        {files.map((file, index) => (
           <div
             key={file.path}
             className={`file-list-item ${selectedFile === file.path ? 'selected' : ''}`}
-            onClick={() => handleFileClick(file)}
+            onClick={() => handleFileClick(file, index)}
             title={file.name}
           >
             <div className="file-icon">📷</div>
