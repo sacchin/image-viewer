@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout/Layout';
-import Toolbar from './components/Toolbar/Toolbar';
 import StatusBar from './components/StatusBar/StatusBar';
 import { SideMenu, PanelType } from './components/SideMenu';
 import { DownloadPanel, ExplorePanel, LogPanel, SettingPanel } from './components/Panels';
@@ -48,10 +47,6 @@ function App() {
 
   return (
     <Layout>
-      <Layout.Header>
-        <Toolbar />
-      </Layout.Header>
-
       <Layout.Main>
         <Layout.Sidebar>
           <SideMenu
