@@ -211,14 +211,26 @@ export function setupIpcHandlers(): void {
     const windows = BrowserWindow.getAllWindows();
     return windows.length > 0 ? windows[0] : null;
   };
-  // Directory selection
+  // Directory selection with network folder support
   ipcMain.handle('select-directory', async () => {
     const result = await dialog.showOpenDialog({
-      properties: ['openDirectory']
+      properties: ['openDirectory'],
+      title: 'Select Folder (Network folders supported)',
+      buttonLabel: 'Select Folder'
     });
 
     if (!result.canceled && result.filePaths.length > 0) {
-      return result.filePaths[0];
+      const selectedPath = result.filePaths[0];
+
+      // Validate the path exists and is accessible
+      try {
+        await fsPromises.access(selectedPath, fs.constants.R_OK);
+        return selectedPath;
+      } catch (error) {
+        console.error('Cannot access selected directory:', error);
+        // Still return the path, let the UI handle the error
+        return selectedPath;
+      }
     }
     return null;
   });
@@ -330,10 +342,15 @@ export function setupIpcHandlers(): void {
     };
   });
 
-  // Folder and file operations for image exploration
+  // Folder and file operations for image exploration (with network support)
   ipcMain.handle('read-folder-tree', async (_, folderPath: string) => {
     try {
-      const stats = await fsPromises.stat(folderPath);
+      // Support for UNC paths and network drives
+      const stats = await fsPromises.stat(folderPath).catch(err => {
+        console.error(`Error accessing folder ${folderPath}:`, err);
+        throw err;
+      });
+
       if (!stats.isDirectory()) {
         return null;
       }

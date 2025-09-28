@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 interface UseMenuOptions {
   onNewDownload?: () => void;
   onImportFolder?: () => void;
+  onOpenFolder?: () => void;
   onViewChange?: (mode: 'grid' | 'list') => void;
   onRefresh?: () => void;
   onManageTags?: () => void;
@@ -18,6 +19,9 @@ export function useMenu(options: UseMenuOptions) {
           break;
         case 'import-folder':
           options.onImportFolder?.();
+          break;
+        case 'open-folder':
+          options.onOpenFolder?.();
           break;
         case 'view-grid':
           options.onViewChange?.('grid');

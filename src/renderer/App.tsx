@@ -10,6 +10,7 @@ import './styles/index.css';
 function App() {
   const [activePanel, setActivePanel] = useState<PanelType>('explore');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const { library, refreshLibrary } = useLibrary();
 
   // キーボードショートカットの処理
@@ -41,6 +42,13 @@ function App() {
     onNewDownload: () => {
       setActivePanel('download');
     },
+    onOpenFolder: async () => {
+      const folderPath = await window.electronAPI.selectDirectory();
+      if (folderPath) {
+        setSelectedFolderPath(folderPath);
+        setActivePanel('explore');
+      }
+    },
     onViewChange: setViewMode,
     onRefresh: refreshLibrary
   });
@@ -60,7 +68,7 @@ function App() {
             <DownloadPanel />
           </div>
           <div style={{ display: activePanel === 'explore' ? 'block' : 'none', height: '100%' }}>
-            <ExplorePanel />
+            <ExplorePanel selectedFolderPath={selectedFolderPath} />
           </div>
           <div style={{ display: activePanel === 'log' ? 'block' : 'none', height: '100%' }}>
             <LogPanel />
