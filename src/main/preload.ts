@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Crawler operations
   startCrawl: (url: string, data?: any) => ipcRenderer.invoke('start-crawling', url, data),
   startCrawling: (url: string, data?: any) => ipcRenderer.invoke('start-crawling', url, data),
-  cancelCrawling: () => ipcRenderer.invoke('cancel-crawling'),
+  cancelCrawling: (jobId?: string) => ipcRenderer.invoke('cancel-crawling', jobId),
   onCrawlingProgress: (callback: (progress: any) => void) => {
     const handler = (_: Electron.IpcRendererEvent, progress: any) => callback(progress);
     ipcRenderer.on('crawling-progress', handler);

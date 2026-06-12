@@ -23,59 +23,103 @@ interface DownloadJob {
 const downloadJobs = new Map<string, DownloadJob>();
 let jobCounter = 0;
 
+// Extensions accepted both when listing folders and when naming downloads
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+
+const MAX_REDIRECTS = 5;
+
 // Helper function to download an image
-async function downloadImage(url: string, outputPath: string): Promise<void> {
+async function downloadImage(url: string, outputPath: string, redirectCount: number = 0): Promise<void> {
   return new Promise((resolve, reject) => {
+    let parsedUrl: URL;
     try {
-      const parsedUrl = new URL(url);
-      const protocol = parsedUrl.protocol === 'https:' ? https : http;
+      parsedUrl = new URL(url);
+    } catch {
+      reject(new Error(`Invalid image URL: ${url}`));
+      return;
+    }
 
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+      reject(new Error(`Unsupported protocol: ${parsedUrl.protocol}`));
+      return;
+    }
+
+    const protocol = parsedUrl.protocol === 'https:' ? https : http;
+
+    // Replaced once a 200 response opens the output file, so request-level
+    // errors (e.g. timeout mid-transfer) also clean up the partial file
+    let onRequestError: (err: Error) => void = reject;
+
+    const request = protocol.get(url, (response) => {
+      const status = response.statusCode ?? 0;
+
+      if (status >= 300 && status < 400) {
+        response.resume();
+        const location = response.headers.location;
+        if (!location) {
+          reject(new Error('Redirect without location header'));
+          return;
+        }
+        if (redirectCount >= MAX_REDIRECTS) {
+          reject(new Error(`Too many redirects for ${url}`));
+          return;
+        }
+        let redirectUrl: string;
+        try {
+          // Location may be relative — resolve it against the current URL
+          redirectUrl = new URL(location, url).toString();
+        } catch {
+          reject(new Error(`Invalid redirect location: ${location}`));
+          return;
+        }
+        downloadImage(redirectUrl, outputPath, redirectCount + 1).then(resolve).catch(reject);
+        return;
+      }
+
+      if (status !== 200) {
+        response.resume();
+        reject(new Error(`Failed to download: HTTP ${status}`));
+        return;
+      }
+
+      // Create the file only after a successful response so failed
+      // requests never leave empty files behind
       const file = fs.createWriteStream(outputPath);
+      let settled = false;
 
-      const request = protocol.get(url, (response) => {
-        if (response.statusCode === 301 || response.statusCode === 302) {
-          // Handle redirect
-          file.close();
-          if (response.headers.location) {
-            downloadImage(response.headers.location, outputPath)
-              .then(resolve)
-              .catch(reject);
+      const fail = (err: Error) => {
+        if (settled) return;
+        settled = true;
+        // Wait for the handle to close before unlinking — unlinking an
+        // open file fails on Windows. Unlink errors are secondary.
+        file.close(() => {
+          fs.unlink(outputPath, () => reject(err));
+        });
+      };
+
+      onRequestError = fail;
+      response.on('error', fail);
+      file.on('error', fail);
+      file.on('finish', () => {
+        file.close((closeErr) => {
+          if (settled) return;
+          settled = true;
+          if (closeErr) {
+            fs.unlink(outputPath, () => reject(closeErr));
           } else {
-            reject(new Error('Redirect without location header'));
+            resolve();
           }
-          return;
-        }
-
-        if (response.statusCode !== 200) {
-          file.close();
-          fs.unlinkSync(outputPath);
-          reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
-          return;
-        }
-
-        response.pipe(file);
-
-        file.on('finish', () => {
-          file.close();
-          resolve();
         });
       });
 
-      request.on('error', (err) => {
-        file.close();
-        fs.unlinkSync(outputPath);
-        reject(err);
-      });
+      response.pipe(file);
+    });
 
-      request.setTimeout(30000, () => {
-        request.destroy();
-        file.close();
-        fs.unlinkSync(outputPath);
-        reject(new Error('Download timeout'));
-      });
-    } catch (error) {
-      reject(error);
-    }
+    request.on('error', (err) => onRequestError(err));
+
+    request.setTimeout(30000, () => {
+      request.destroy(new Error('Download timeout'));
+    });
   });
 }
 
@@ -191,6 +235,12 @@ async function processDownloadJob(jobId: string, mainWindow: BrowserWindow | nul
   const job = downloadJobs.get(jobId);
   if (!job) return;
 
+  if (job.imageUrls.length === 0) {
+    job.status = 'error';
+    sendProgressUpdate(mainWindow, job, 'No image URLs to download');
+    return;
+  }
+
   job.status = 'downloading';
   sendProgressUpdate(mainWindow, job);
 
@@ -215,7 +265,19 @@ async function processDownloadJob(jobId: string, mainWindow: BrowserWindow | nul
     }
 
     const imageUrl = job.imageUrls[i];
-    const ext = path.extname(new URL(imageUrl).pathname) || '.jpg';
+
+    // Name files only with known image extensions — never trust the URL
+    // to pick arbitrary extensions (.exe, .html, ...) for files on disk
+    let ext = '.jpg';
+    try {
+      const urlExt = path.extname(new URL(imageUrl).pathname).toLowerCase();
+      if (IMAGE_EXTENSIONS.includes(urlExt)) {
+        ext = urlExt;
+      }
+    } catch {
+      // Invalid URL — downloadImage below will reject and the job moves on
+    }
+
     const filename = `${String(fileNumber).padStart(3, '0')}${ext}`;
     const outputPath = path.join(job.outputDir, filename);
 
@@ -311,7 +373,9 @@ export function setupIpcHandlers(): void {
     // Start download in background
     const mainWindow = getMainWindow();
     setTimeout(() => {
-      processDownloadJob(jobId, mainWindow);
+      processDownloadJob(jobId, mainWindow).catch((error) => {
+        console.error(`Download job ${jobId} failed:`, error);
+      });
     }, 100);
 
     return { jobId, status: 'started', url };
@@ -411,12 +475,11 @@ export function setupIpcHandlers(): void {
   ipcMain.handle('get-folder-contents', async (_, folderPath: string) => {
     try {
       const entries = await fsPromises.readdir(folderPath, { withFileTypes: true });
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
 
       // Filter by dirent type first so only image files get stat'ed,
       // then stat them concurrently (libuv throttles the actual parallelism)
       const imageEntries = entries.filter(
-        entry => entry.isFile() && imageExtensions.includes(path.extname(entry.name).toLowerCase())
+        entry => entry.isFile() && IMAGE_EXTENSIONS.includes(path.extname(entry.name).toLowerCase())
       );
 
       const contents = await Promise.all(
