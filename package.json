@@ -14,7 +14,7 @@
     "clean": "powershell -Command \"if (Test-Path dist) { Remove-Item -Path dist -Recurse -Force }\"",
     "build": "npm run clean && npm run build:main && npm run build:renderer",
     "build:main": "tsc -p tsconfig.main.json",
-    "build:renderer": "webpack --config webpack.config.js",
+    "build:renderer": "webpack --config webpack.config.js --mode production",
     "dist": "electron-builder",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:e2e": "npm run build && playwright test",

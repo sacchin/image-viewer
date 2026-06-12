@@ -18,6 +18,18 @@ function createWindow(): void {
     icon: path.join(__dirname, '../../public/icon.png')
   });
 
+  // The renderer never legitimately opens new windows or navigates away
+  // from the app, so block both (preload APIs must not leak to other pages)
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const isReload = url === mainWindow?.webContents.getURL();
+    const isDevServer =
+      process.env.NODE_ENV === 'development' && url.startsWith('http://localhost:8080');
+    if (!isReload && !isDevServer) {
+      event.preventDefault();
+    }
+  });
+
   // Load the app
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:8080');
