@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Folder and image operations
   readFolderTree: (folderPath: string) => ipcRenderer.invoke('read-folder-tree', folderPath),
+  readSubfolders: (folderPath: string) => ipcRenderer.invoke('read-subfolders', folderPath),
   getFolderContents: (folderPath: string) => ipcRenderer.invoke('get-folder-contents', folderPath),
   readImageFile: (imagePath: string) => ipcRenderer.invoke('read-image-file', imagePath)
 });

@@ -29,6 +29,7 @@ declare global {
 
       // Folder and image operations
       readFolderTree: (folderPath: string) => Promise<any>;
+      readSubfolders: (folderPath: string) => Promise<any[]>;
       getFolderContents: (folderPath: string) => Promise<any[]>;
       readImageFile: (imagePath: string) => Promise<{ data: string; size: number; type: string } | null>;
     };

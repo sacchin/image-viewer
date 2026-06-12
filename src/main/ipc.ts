@@ -139,6 +139,36 @@ function naturalSort(a: string, b: string): number {
   return 0;
 }
 
+// Folder tree node returned to the renderer; children are loaded lazily
+// (one level per request) so large or slow network folders stay responsive
+interface FolderTreeNode {
+  name: string;
+  path: string;
+  type: 'folder';
+  children: FolderTreeNode[] | null;
+  loaded: boolean;
+}
+
+// Read one level of subfolders. Uses withFileTypes so a single readdir
+// call is enough — no per-entry stat, which is what made UNC paths slow.
+async function readSubfolders(dirPath: string): Promise<FolderTreeNode[]> {
+  try {
+    const entries = await fsPromises.readdir(dirPath, { withFileTypes: true });
+    return entries
+      .filter(entry => entry.isDirectory())
+      .map(entry => ({
+        name: entry.name,
+        path: path.join(dirPath, entry.name),
+        type: 'folder' as const,
+        children: null,
+        loaded: false
+      }));
+  } catch (err) {
+    console.warn(`Cannot read directory ${dirPath}:`, err);
+    return [];
+  }
+}
+
 // Helper function to get next available file number in directory
 async function getNextFileNumber(dirPath: string): Promise<number> {
   try {
@@ -343,6 +373,8 @@ export function setupIpcHandlers(): void {
   });
 
   // Folder and file operations for image exploration (with network support)
+  // Returns the root node with only its first level of children;
+  // deeper levels are fetched on demand via 'read-subfolders'.
   ipcMain.handle('read-folder-tree', async (_, folderPath: string) => {
     try {
       // Support for UNC paths and network drives
@@ -355,77 +387,61 @@ export function setupIpcHandlers(): void {
         return null;
       }
 
-      const readDirRecursive = async (dirPath: string, depth: number = 0, maxDepth: number = 10): Promise<any> => {
-        const name = path.basename(dirPath);
-        const item: any = {
-          name,
-          path: dirPath,
-          type: 'folder',
-          children: []
-        };
-
-        if (depth < maxDepth) {
-          try {
-            const files = await fsPromises.readdir(dirPath);
-            for (const file of files) {
-              const filePath = path.join(dirPath, file);
-              try {
-                const fileStat = await fsPromises.stat(filePath);
-                if (fileStat.isDirectory()) {
-                  // Recursively read subdirectories
-                  const child = await readDirRecursive(filePath, depth + 1, maxDepth);
-                  item.children.push(child);
-                }
-              } catch (err) {
-                // Skip files/folders we can't access
-                console.warn(`Cannot access ${filePath}:`, err);
-              }
-            }
-          } catch (err) {
-            console.warn(`Cannot read directory ${dirPath}:`, err);
-          }
-        }
-
-        return item;
+      const root: FolderTreeNode = {
+        // basename is empty for drive roots like 'C:\' — fall back to the path
+        name: path.basename(folderPath) || folderPath,
+        path: folderPath,
+        type: 'folder',
+        children: await readSubfolders(folderPath),
+        loaded: true
       };
 
-      return await readDirRecursive(folderPath);
+      return root;
     } catch (error) {
       console.error('Error reading folder tree:', error);
       return null;
     }
   });
 
+  // Lazily load one level of subfolders for tree expansion
+  ipcMain.handle('read-subfolders', async (_, folderPath: string) => {
+    return readSubfolders(folderPath);
+  });
+
   ipcMain.handle('get-folder-contents', async (_, folderPath: string) => {
     try {
-      const files = await fsPromises.readdir(folderPath);
+      const entries = await fsPromises.readdir(folderPath, { withFileTypes: true });
       const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
-      const contents = [];
 
-      for (const file of files) {
-        const filePath = path.join(folderPath, file);
-        try {
-          const stats = await fsPromises.stat(filePath);
-          const ext = path.extname(file).toLowerCase();
+      // Filter by dirent type first so only image files get stat'ed,
+      // then stat them concurrently (libuv throttles the actual parallelism)
+      const imageEntries = entries.filter(
+        entry => entry.isFile() && imageExtensions.includes(path.extname(entry.name).toLowerCase())
+      );
 
-          if (stats.isFile() && imageExtensions.includes(ext)) {
-            contents.push({
-              name: file,
+      const contents = await Promise.all(
+        imageEntries.map(async entry => {
+          const filePath = path.join(folderPath, entry.name);
+          try {
+            const stats = await fsPromises.stat(filePath);
+            return {
+              name: entry.name,
               path: filePath,
               type: 'image',
               size: stats.size,
               modified: stats.mtime
-            });
+            };
+          } catch (err) {
+            console.warn(`Cannot access ${filePath}:`, err);
+            return null;
           }
-        } catch (err) {
-          console.warn(`Cannot access ${filePath}:`, err);
-        }
-      }
+        })
+      );
 
       // Sort by name using natural sort (numeric-aware)
-      contents.sort((a, b) => naturalSort(a.name, b.name));
-
-      return contents;
+      return contents
+        .filter((item): item is NonNullable<typeof item> => item !== null)
+        .sort((a, b) => naturalSort(a.name, b.name));
     } catch (error) {
       console.error('Error getting folder contents:', error);
       return [];

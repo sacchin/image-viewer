@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './FolderTree.css';
 
 interface FolderNode {
   name: string;
   path: string;
   type: string;
-  children?: FolderNode[];
+  // null until the node's subfolders have been fetched (loaded === false)
+  children?: FolderNode[] | null;
+  loaded?: boolean;
 }
 
 interface FolderTreeProps {
@@ -25,7 +27,9 @@ const FolderTreeNode: React.FC<{
   onSelect: (path: string) => void;
 }> = ({ node, level, selectedPath, expandedPaths, onToggle, onSelect }) => {
   const isExpanded = expandedPaths.has(node.path);
-  const hasChildren = node.children && node.children.length > 0;
+  // Until a node is loaded we don't know whether it has subfolders,
+  // so keep the expand arrow visible and resolve it on first expand
+  const hasChildren = node.loaded ? !!node.children && node.children.length > 0 : true;
   const isSelected = selectedPath === node.path;
 
   const handleToggle = (e: React.MouseEvent) => {
@@ -58,7 +62,15 @@ const FolderTreeNode: React.FC<{
         <span className="folder-icon">📁</span>
         <span className="folder-name">{node.name}</span>
       </div>
-      {isExpanded && hasChildren && (
+      {isExpanded && !node.loaded && (
+        <div
+          className="folder-children-loading"
+          style={{ paddingLeft: `${(level + 1) * 16 + 8}px` }}
+        >
+          Loading...
+        </div>
+      )}
+      {isExpanded && node.loaded && hasChildren && (
         <div className="folder-children">
           {node.children!.map((child) => (
             <FolderTreeNode
@@ -88,6 +100,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const loadingPathsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (rootPath) {
@@ -111,7 +124,59 @@ const FolderTree: React.FC<FolderTreeProps> = ({
     }
   };
 
+  const findNode = (node: FolderNode | null, path: string): FolderNode | null => {
+    if (!node) return null;
+    if (node.path === path) return node;
+    for (const child of node.children ?? []) {
+      const found = findNode(child, path);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const updateNode = (
+    node: FolderNode,
+    path: string,
+    updater: (node: FolderNode) => FolderNode
+  ): FolderNode => {
+    if (node.path === path) {
+      return updater(node);
+    }
+    if (!node.children || node.children.length === 0) {
+      return node;
+    }
+    let changed = false;
+    const children = node.children.map((child) => {
+      const next = updateNode(child, path, updater);
+      if (next !== child) changed = true;
+      return next;
+    });
+    return changed ? { ...node, children } : node;
+  };
+
+  const loadChildren = async (path: string) => {
+    if (loadingPathsRef.current.has(path)) {
+      return;
+    }
+    loadingPathsRef.current.add(path);
+    try {
+      const children = await window.electronAPI.readSubfolders(path);
+      setTreeData((tree) =>
+        tree ? updateNode(tree, path, (node) => ({ ...node, children, loaded: true })) : tree
+      );
+    } catch (error) {
+      console.error('Failed to load subfolders:', error);
+      // Mark as loaded with no children so the UI doesn't spin forever
+      setTreeData((tree) =>
+        tree ? updateNode(tree, path, (node) => ({ ...node, children: [], loaded: true })) : tree
+      );
+    } finally {
+      loadingPathsRef.current.delete(path);
+    }
+  };
+
   const handleToggle = (path: string) => {
+    const isExpanding = !expandedPaths.has(path);
     setExpandedPaths((prev) => {
       const next = new Set(prev);
       if (next.has(path)) {
@@ -121,6 +186,13 @@ const FolderTree: React.FC<FolderTreeProps> = ({
       }
       return next;
     });
+
+    if (isExpanding) {
+      const node = findNode(treeData, path);
+      if (node && !node.loaded) {
+        loadChildren(path);
+      }
+    }
   };
 
   const handleSelect = (path: string) => {
