@@ -4,11 +4,7 @@ import FileList from '../FileList/FileList';
 import ImagePreview from '../ImagePreview/ImagePreview';
 import './ExplorePanel.css';
 
-interface ExplorePanelProps {
-  selectedFolderPath?: string | null;
-}
-
-export const ExplorePanel: React.FC<ExplorePanelProps> = ({ selectedFolderPath }) => {
+export const ExplorePanel: React.FC = () => {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [rootPath, setRootPath] = useState<string>('');
@@ -21,14 +17,6 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ selectedFolderPath }
       }
     });
   }, []);
-
-  useEffect(() => {
-    // Update root path when a folder is selected from menu
-    if (selectedFolderPath) {
-      setRootPath(selectedFolderPath);
-      setSelectedFolder(selectedFolderPath);
-    }
-  }, [selectedFolderPath]);
 
   const handleFolderSelect = (folderPath: string) => {
     setSelectedFolder(folderPath);

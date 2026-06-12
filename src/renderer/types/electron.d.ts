@@ -3,9 +3,6 @@ export {};
 declare global {
   interface Window {
     electronAPI: {
-      // Menu actions
-      onMenuAction: (callback: (action: string) => void) => void;
-
       // File operations
       selectDirectory: () => Promise<string | null>;
       readLibrary: () => Promise<any[]>;
@@ -14,7 +11,7 @@ declare global {
       // Crawler operations
       startCrawl?: (url: string, data?: any) => Promise<any>;
       startCrawling: (url: string) => Promise<any>;
-      cancelCrawling: () => Promise<any>;
+      cancelCrawling: (jobId?: string) => Promise<any>;
       onCrawlProgress?: (callback: (progress: any) => void) => void | (() => void);
       onCrawlingProgress: (callback: (progress: any) => void) => void;
 
@@ -29,6 +26,7 @@ declare global {
 
       // Folder and image operations
       readFolderTree: (folderPath: string) => Promise<any>;
+      readSubfolders: (folderPath: string) => Promise<any[]>;
       getFolderContents: (folderPath: string) => Promise<any[]>;
       readImageFile: (imagePath: string) => Promise<{ data: string; size: number; type: string } | null>;
     };

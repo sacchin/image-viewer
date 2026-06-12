@@ -23,59 +23,131 @@ interface DownloadJob {
 const downloadJobs = new Map<string, DownloadJob>();
 let jobCounter = 0;
 
+// Extensions accepted both when listing folders and when naming downloads
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+
+const MAX_REDIRECTS = 5;
+
+// Roots the renderer may read from: the configured download path plus any
+// folder the user explicitly picked in the directory dialog. Everything
+// else is rejected so a compromised renderer can't read arbitrary files.
+const allowedRoots = new Set<string>();
+
+function addAllowedRoot(root: unknown): void {
+  if (typeof root === 'string' && root.trim()) {
+    allowedRoots.add(path.resolve(root));
+  }
+}
+
+function isPathAllowed(target: unknown): boolean {
+  if (typeof target !== 'string' || !target.trim()) {
+    return false;
+  }
+  const resolved = path.resolve(target);
+  for (const root of allowedRoots) {
+    // path.relative is case-insensitive on win32; inside the root when the
+    // relative path neither escapes (..) nor jumps to another drive
+    const rel = path.relative(root, resolved);
+    if (rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))) {
+      return true;
+    }
+  }
+  console.warn(`Blocked file access outside allowed roots: ${target}`);
+  return false;
+}
+
 // Helper function to download an image
-async function downloadImage(url: string, outputPath: string): Promise<void> {
+async function downloadImage(url: string, outputPath: string, redirectCount: number = 0): Promise<void> {
   return new Promise((resolve, reject) => {
+    let parsedUrl: URL;
     try {
-      const parsedUrl = new URL(url);
-      const protocol = parsedUrl.protocol === 'https:' ? https : http;
+      parsedUrl = new URL(url);
+    } catch {
+      reject(new Error(`Invalid image URL: ${url}`));
+      return;
+    }
 
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+      reject(new Error(`Unsupported protocol: ${parsedUrl.protocol}`));
+      return;
+    }
+
+    const protocol = parsedUrl.protocol === 'https:' ? https : http;
+
+    // Replaced once a 200 response opens the output file, so request-level
+    // errors (e.g. timeout mid-transfer) also clean up the partial file
+    let onRequestError: (err: Error) => void = reject;
+
+    const request = protocol.get(url, (response) => {
+      const status = response.statusCode ?? 0;
+
+      if (status >= 300 && status < 400) {
+        response.resume();
+        const location = response.headers.location;
+        if (!location) {
+          reject(new Error('Redirect without location header'));
+          return;
+        }
+        if (redirectCount >= MAX_REDIRECTS) {
+          reject(new Error(`Too many redirects for ${url}`));
+          return;
+        }
+        let redirectUrl: string;
+        try {
+          // Location may be relative — resolve it against the current URL
+          redirectUrl = new URL(location, url).toString();
+        } catch {
+          reject(new Error(`Invalid redirect location: ${location}`));
+          return;
+        }
+        downloadImage(redirectUrl, outputPath, redirectCount + 1).then(resolve).catch(reject);
+        return;
+      }
+
+      if (status !== 200) {
+        response.resume();
+        reject(new Error(`Failed to download: HTTP ${status}`));
+        return;
+      }
+
+      // Create the file only after a successful response so failed
+      // requests never leave empty files behind
       const file = fs.createWriteStream(outputPath);
+      let settled = false;
 
-      const request = protocol.get(url, (response) => {
-        if (response.statusCode === 301 || response.statusCode === 302) {
-          // Handle redirect
-          file.close();
-          if (response.headers.location) {
-            downloadImage(response.headers.location, outputPath)
-              .then(resolve)
-              .catch(reject);
+      const fail = (err: Error) => {
+        if (settled) return;
+        settled = true;
+        // Wait for the handle to close before unlinking — unlinking an
+        // open file fails on Windows. Unlink errors are secondary.
+        file.close(() => {
+          fs.unlink(outputPath, () => reject(err));
+        });
+      };
+
+      onRequestError = fail;
+      response.on('error', fail);
+      file.on('error', fail);
+      file.on('finish', () => {
+        file.close((closeErr) => {
+          if (settled) return;
+          settled = true;
+          if (closeErr) {
+            fs.unlink(outputPath, () => reject(closeErr));
           } else {
-            reject(new Error('Redirect without location header'));
+            resolve();
           }
-          return;
-        }
-
-        if (response.statusCode !== 200) {
-          file.close();
-          fs.unlinkSync(outputPath);
-          reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
-          return;
-        }
-
-        response.pipe(file);
-
-        file.on('finish', () => {
-          file.close();
-          resolve();
         });
       });
 
-      request.on('error', (err) => {
-        file.close();
-        fs.unlinkSync(outputPath);
-        reject(err);
-      });
+      response.pipe(file);
+    });
 
-      request.setTimeout(30000, () => {
-        request.destroy();
-        file.close();
-        fs.unlinkSync(outputPath);
-        reject(new Error('Download timeout'));
-      });
-    } catch (error) {
-      reject(error);
-    }
+    request.on('error', (err) => onRequestError(err));
+
+    request.setTimeout(30000, () => {
+      request.destroy(new Error('Download timeout'));
+    });
   });
 }
 
@@ -139,6 +211,36 @@ function naturalSort(a: string, b: string): number {
   return 0;
 }
 
+// Folder tree node returned to the renderer; children are loaded lazily
+// (one level per request) so large or slow network folders stay responsive
+interface FolderTreeNode {
+  name: string;
+  path: string;
+  type: 'folder';
+  children: FolderTreeNode[] | null;
+  loaded: boolean;
+}
+
+// Read one level of subfolders. Uses withFileTypes so a single readdir
+// call is enough — no per-entry stat, which is what made UNC paths slow.
+async function readSubfolders(dirPath: string): Promise<FolderTreeNode[]> {
+  try {
+    const entries = await fsPromises.readdir(dirPath, { withFileTypes: true });
+    return entries
+      .filter(entry => entry.isDirectory())
+      .map(entry => ({
+        name: entry.name,
+        path: path.join(dirPath, entry.name),
+        type: 'folder' as const,
+        children: null,
+        loaded: false
+      }));
+  } catch (err) {
+    console.warn(`Cannot read directory ${dirPath}:`, err);
+    return [];
+  }
+}
+
 // Helper function to get next available file number in directory
 async function getNextFileNumber(dirPath: string): Promise<number> {
   try {
@@ -160,6 +262,12 @@ async function getNextFileNumber(dirPath: string): Promise<number> {
 async function processDownloadJob(jobId: string, mainWindow: BrowserWindow | null) {
   const job = downloadJobs.get(jobId);
   if (!job) return;
+
+  if (job.imageUrls.length === 0) {
+    job.status = 'error';
+    sendProgressUpdate(mainWindow, job, 'No image URLs to download');
+    return;
+  }
 
   job.status = 'downloading';
   sendProgressUpdate(mainWindow, job);
@@ -185,7 +293,19 @@ async function processDownloadJob(jobId: string, mainWindow: BrowserWindow | nul
     }
 
     const imageUrl = job.imageUrls[i];
-    const ext = path.extname(new URL(imageUrl).pathname) || '.jpg';
+
+    // Name files only with known image extensions — never trust the URL
+    // to pick arbitrary extensions (.exe, .html, ...) for files on disk
+    let ext = '.jpg';
+    try {
+      const urlExt = path.extname(new URL(imageUrl).pathname).toLowerCase();
+      if (IMAGE_EXTENSIONS.includes(urlExt)) {
+        ext = urlExt;
+      }
+    } catch {
+      // Invalid URL — downloadImage below will reject and the job moves on
+    }
+
     const filename = `${String(fileNumber).padStart(3, '0')}${ext}`;
     const outputPath = path.join(job.outputDir, filename);
 
@@ -211,6 +331,9 @@ export function setupIpcHandlers(): void {
     const windows = BrowserWindow.getAllWindows();
     return windows.length > 0 ? windows[0] : null;
   };
+
+  // The configured download path is always readable
+  addAllowedRoot(settingsManager.getSettings().defaultDownloadPath);
   // Directory selection with network folder support
   ipcMain.handle('select-directory', async () => {
     const result = await dialog.showOpenDialog({
@@ -221,6 +344,9 @@ export function setupIpcHandlers(): void {
 
     if (!result.canceled && result.filePaths.length > 0) {
       const selectedPath = result.filePaths[0];
+
+      // The user explicitly picked this folder — allow reads under it
+      addAllowedRoot(selectedPath);
 
       // Validate the path exists and is accessible
       try {
@@ -281,7 +407,9 @@ export function setupIpcHandlers(): void {
     // Start download in background
     const mainWindow = getMainWindow();
     setTimeout(() => {
-      processDownloadJob(jobId, mainWindow);
+      processDownloadJob(jobId, mainWindow).catch((error) => {
+        console.error(`Download job ${jobId} failed:`, error);
+      });
     }, 100);
 
     return { jobId, status: 'started', url };
@@ -307,6 +435,16 @@ export function setupIpcHandlers(): void {
   // Fetch URL from main process to avoid CORS issues
   ipcMain.handle('fetch-url', async (_, url: string) => {
     try {
+      let parsed: URL;
+      try {
+        parsed = new URL(url);
+      } catch {
+        throw new Error('Invalid URL');
+      }
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        throw new Error('Only http/https URLs can be fetched');
+      }
+
       const response = await fetch(url, { method: 'GET' });
 
       if (!response.ok) {
@@ -327,12 +465,18 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('save-settings', async (_, settings: any) => {
-    settingsManager.saveSettings(settings);
+    // Persist only known keys, and only with valid values
+    if (!settings || typeof settings.defaultDownloadPath !== 'string' || !settings.defaultDownloadPath.trim()) {
+      return { success: false, error: 'defaultDownloadPath must be a non-empty string' };
+    }
+    settingsManager.saveSettings({ defaultDownloadPath: settings.defaultDownloadPath });
+    addAllowedRoot(settings.defaultDownloadPath);
     return { success: true };
   });
 
   ipcMain.handle('reset-settings', async () => {
     settingsManager.resetToDefaults();
+    addAllowedRoot(settingsManager.getSettings().defaultDownloadPath);
     return settingsManager.getSettings();
   });
 
@@ -343,7 +487,12 @@ export function setupIpcHandlers(): void {
   });
 
   // Folder and file operations for image exploration (with network support)
+  // Returns the root node with only its first level of children;
+  // deeper levels are fetched on demand via 'read-subfolders'.
   ipcMain.handle('read-folder-tree', async (_, folderPath: string) => {
+    if (!isPathAllowed(folderPath)) {
+      return null;
+    }
     try {
       // Support for UNC paths and network drives
       const stats = await fsPromises.stat(folderPath).catch(err => {
@@ -355,77 +504,66 @@ export function setupIpcHandlers(): void {
         return null;
       }
 
-      const readDirRecursive = async (dirPath: string, depth: number = 0, maxDepth: number = 10): Promise<any> => {
-        const name = path.basename(dirPath);
-        const item: any = {
-          name,
-          path: dirPath,
-          type: 'folder',
-          children: []
-        };
-
-        if (depth < maxDepth) {
-          try {
-            const files = await fsPromises.readdir(dirPath);
-            for (const file of files) {
-              const filePath = path.join(dirPath, file);
-              try {
-                const fileStat = await fsPromises.stat(filePath);
-                if (fileStat.isDirectory()) {
-                  // Recursively read subdirectories
-                  const child = await readDirRecursive(filePath, depth + 1, maxDepth);
-                  item.children.push(child);
-                }
-              } catch (err) {
-                // Skip files/folders we can't access
-                console.warn(`Cannot access ${filePath}:`, err);
-              }
-            }
-          } catch (err) {
-            console.warn(`Cannot read directory ${dirPath}:`, err);
-          }
-        }
-
-        return item;
+      const root: FolderTreeNode = {
+        // basename is empty for drive roots like 'C:\' — fall back to the path
+        name: path.basename(folderPath) || folderPath,
+        path: folderPath,
+        type: 'folder',
+        children: await readSubfolders(folderPath),
+        loaded: true
       };
 
-      return await readDirRecursive(folderPath);
+      return root;
     } catch (error) {
       console.error('Error reading folder tree:', error);
       return null;
     }
   });
 
+  // Lazily load one level of subfolders for tree expansion
+  ipcMain.handle('read-subfolders', async (_, folderPath: string) => {
+    if (!isPathAllowed(folderPath)) {
+      return [];
+    }
+    return readSubfolders(folderPath);
+  });
+
   ipcMain.handle('get-folder-contents', async (_, folderPath: string) => {
+    if (!isPathAllowed(folderPath)) {
+      return [];
+    }
     try {
-      const files = await fsPromises.readdir(folderPath);
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
-      const contents = [];
+      const entries = await fsPromises.readdir(folderPath, { withFileTypes: true });
 
-      for (const file of files) {
-        const filePath = path.join(folderPath, file);
-        try {
-          const stats = await fsPromises.stat(filePath);
-          const ext = path.extname(file).toLowerCase();
+      // Filter by dirent type first so only image files get stat'ed,
+      // then stat them concurrently (libuv throttles the actual parallelism)
+      const imageEntries = entries.filter(
+        entry => entry.isFile() && IMAGE_EXTENSIONS.includes(path.extname(entry.name).toLowerCase())
+      );
 
-          if (stats.isFile() && imageExtensions.includes(ext)) {
-            contents.push({
-              name: file,
+      const contents = await Promise.all(
+        imageEntries.map(async entry => {
+          const filePath = path.join(folderPath, entry.name);
+          try {
+            const stats = await fsPromises.stat(filePath);
+            return {
+              name: entry.name,
               path: filePath,
               type: 'image',
               size: stats.size,
               modified: stats.mtime
-            });
+            };
+          } catch (err) {
+            console.warn(`Cannot access ${filePath}:`, err);
+            return null;
           }
-        } catch (err) {
-          console.warn(`Cannot access ${filePath}:`, err);
-        }
-      }
+        })
+      );
 
       // Sort by name using natural sort (numeric-aware)
-      contents.sort((a, b) => naturalSort(a.name, b.name));
-
-      return contents;
+      return contents
+        .filter((item): item is NonNullable<typeof item> => item !== null)
+        .sort((a, b) => naturalSort(a.name, b.name));
     } catch (error) {
       console.error('Error getting folder contents:', error);
       return [];
@@ -433,9 +571,16 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('read-image-file', async (_, imagePath: string) => {
+    if (!isPathAllowed(imagePath)) {
+      return null;
+    }
+    const ext = path.extname(imagePath).toLowerCase();
+    if (!IMAGE_EXTENSIONS.includes(ext)) {
+      console.warn(`Blocked reading non-image file: ${imagePath}`);
+      return null;
+    }
     try {
       const data = await fsPromises.readFile(imagePath);
-      const ext = path.extname(imagePath).toLowerCase();
 
       // Determine MIME type
       const mimeTypes: { [key: string]: string } = {

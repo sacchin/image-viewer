@@ -2,8 +2,10 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
-module.exports = {
-  mode: process.env.NODE_ENV || 'development',
+// Mode comes from the CLI (--mode); `webpack serve` for dev and plain
+// builds without a flag fall back to development
+module.exports = (env, argv) => ({
+  mode: argv.mode || process.env.NODE_ENV || 'development',
   entry: './src/renderer/index.tsx',
   target: 'electron-renderer',
   devtool: 'source-map',
@@ -43,4 +45,4 @@ module.exports = {
       template: './public/index.html',
     }),
   ],
-};
+});

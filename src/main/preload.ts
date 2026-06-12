@@ -1,11 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Menu actions
-  onMenuAction: (callback: (action: string) => void) => {
-    ipcRenderer.on('menu-action', (_, action) => callback(action));
-  },
-
   // File operations
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   readLibrary: () => ipcRenderer.invoke('read-library'),
@@ -15,7 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Crawler operations
   startCrawl: (url: string, data?: any) => ipcRenderer.invoke('start-crawling', url, data),
   startCrawling: (url: string, data?: any) => ipcRenderer.invoke('start-crawling', url, data),
-  cancelCrawling: () => ipcRenderer.invoke('cancel-crawling'),
+  cancelCrawling: (jobId?: string) => ipcRenderer.invoke('cancel-crawling', jobId),
   onCrawlingProgress: (callback: (progress: any) => void) => {
     const handler = (_: Electron.IpcRendererEvent, progress: any) => callback(progress);
     ipcRenderer.on('crawling-progress', handler);
@@ -38,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Folder and image operations
   readFolderTree: (folderPath: string) => ipcRenderer.invoke('read-folder-tree', folderPath),
+  readSubfolders: (folderPath: string) => ipcRenderer.invoke('read-subfolders', folderPath),
   getFolderContents: (folderPath: string) => ipcRenderer.invoke('get-folder-contents', folderPath),
   readImageFile: (imagePath: string) => ipcRenderer.invoke('read-image-file', imagePath)
 });
