@@ -1,11 +1,8 @@
 {
   "name": "image-viewer",
   "version": "1.0.0",
-  "description": "",
+  "description": "Image viewer desktop application",
   "main": "dist/main/index.js",
-  "directories": {
-    "doc": "doc"
-  },
   "scripts": {
     "start": "npm run build && electron dist/main/index.js",
     "dev": "npm run build:main && concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
@@ -15,7 +12,7 @@
     "build": "npm run clean && npm run build:main && npm run build:renderer",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "webpack --config webpack.config.js --mode production",
-    "dist": "electron-builder",
+    "dist": "npm run build && electron-builder",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:headed": "npm run build && playwright test --headed",
@@ -26,12 +23,36 @@
     "url": "git+https://github.com/sacchin/image-viewer.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "sacchin",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/sacchin/image-viewer/issues"
   },
   "homepage": "https://github.com/sacchin/image-viewer#readme",
+  "build": {
+    "appId": "com.sacchin.image-viewer",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**/*",
+      "!**/*.map"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    }
+  },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@types/node": "^24.5.2",
@@ -53,6 +74,8 @@
     "linkedom": "^0.16.5",
     "playwright": "^1.55.0",
     "prettier": "^3.6.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
@@ -63,8 +86,6 @@
     "webpack-dev-server": "^5.2.2"
   },
   "dependencies": {
-    "electron-store": "^10.1.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "electron-store": "^10.1.0"
   }
 }
