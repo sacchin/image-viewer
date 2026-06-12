@@ -3,9 +3,6 @@ export {};
 declare global {
   interface Window {
     electronAPI: {
-      // Menu actions
-      onMenuAction: (callback: (action: string) => void) => void;
-
       // File operations
       selectDirectory: () => Promise<string | null>;
       readLibrary: () => Promise<any[]>;

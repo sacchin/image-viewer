@@ -1,11 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Menu actions
-  onMenuAction: (callback: (action: string) => void) => {
-    ipcRenderer.on('menu-action', (_, action) => callback(action));
-  },
-
   // File operations
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   readLibrary: () => ipcRenderer.invoke('read-library'),

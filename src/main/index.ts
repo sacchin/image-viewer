@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import * as path from 'path';
 import { setupIpcHandlers } from './ipc';
 
