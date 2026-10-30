@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // External gallery: which site profile the main process is running with
   getExternalProfileInfo: () => ipcRenderer.invoke('external-get-profile-info'),
+  fetchExternalDocument: (url: string) => ipcRenderer.invoke('external-fetch-document', url),
 
   // Settings operations
   getSettings: () => ipcRenderer.invoke('get-settings'),

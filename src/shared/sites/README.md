@@ -25,6 +25,16 @@ concrete site lives in a *profile* module implementing `SiteProfile` from
 Both processes fall back to `example/` when `private/` is absent, so a fresh
 checkout always builds and the UI shows that the sample profile is active.
 
+## Pointing a development build at a local server
+
+Fetching is https-only and restricted to the profile's `allowedHosts`. For
+local fixtures (and the e2e suite) two environment variables relax this in
+unpackaged builds only:
+
+- `EXTERNAL_GALLERY_ALLOW_INSECURE=1` admits plain http and loopback literals
+- `EXTERNAL_GALLERY_EXTRA_HOSTS=127.0.0.1:4100,localhost:4100` adds hosts to
+  the allow list (ignored unless the first variable is set)
+
 ## Keeping the site out of the repository
 
 - `.gitignore` excludes `src/shared/sites/private/`, `tests/fixtures/private/`

@@ -20,6 +20,10 @@ declare global {
 
       // External gallery: which site profile the main process is running with
       getExternalProfileInfo: () => Promise<{ id: string; displayName: string; isSample: boolean }>;
+      fetchExternalDocument: (url: string) => Promise<
+        | { success: true; html: string }
+        | { success: false; error: string; kind: 'policy' | 'network' | 'http' | 'redirect' | 'validation' | 'unknown' }
+      >;
 
       // Settings operations
       getSettings: () => Promise<any>;

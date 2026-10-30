@@ -1,8 +1,13 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import * as path from 'path';
 import { setupIpcHandlers } from './ipc';
+import { handleGalleryImageProtocol, registerGalleryImageScheme } from './external/imageProtocol';
+import { getExternalFetcher } from './external';
 
 let mainWindow: BrowserWindow | null = null;
+
+// Custom schemes must be declared before the app is ready
+registerGalleryImageScheme();
 
 // Guard with isPackaged so a stray NODE_ENV on a user's machine can't make
 // the packaged exe load the dev server
@@ -17,6 +22,9 @@ function createWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      // The renderer parses untrusted HTML from the external site, so it runs
+      // in the OS sandbox; the preload only needs contextBridge/ipcRenderer
+      sandbox: true,
       preload: path.join(__dirname, 'preload.js')
     }
   });
@@ -49,6 +57,9 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Images from the external site reach the renderer only through this
+  // scheme, after allow-listing and content sniffing in the main process
+  handleGalleryImageProtocol(getExternalFetcher);
   createWindow();
   setupIpcHandlers();
 });

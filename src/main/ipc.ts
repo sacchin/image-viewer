@@ -8,6 +8,8 @@ import { URL } from 'url';
 import { settingsManager } from './settings';
 import { sanitizeFolderName } from './sanitizeFolderName';
 import { getSiteProfile } from './external/profileLoader';
+import { getExternalFetcher } from './external';
+import { FetchError } from './external/fetcher';
 
 // Download job tracking
 interface DownloadJob {
@@ -450,6 +452,25 @@ export function setupIpcHandlers(): void {
   ipcMain.handle('external-get-profile-info', async () => {
     const { profile, isSample } = getSiteProfile();
     return { id: profile.id, displayName: profile.displayName, isSample };
+  });
+
+  // External gallery: fetch an HTML document from the site. Unlike 'fetch-url'
+  // (which serves the user-driven download feature for arbitrary URLs), this
+  // path is restricted to the profile's hosts, rate limited and size capped.
+  // The renderer parses the result with DOMParser; nothing here is rendered.
+  ipcMain.handle('external-fetch-document', async (_, url: unknown) => {
+    if (typeof url !== 'string' || !url.trim()) {
+      return { success: false, error: 'url must be a non-empty string', kind: 'policy' };
+    }
+    try {
+      const html = await getExternalFetcher().fetchDocument(url);
+      return { success: true, html };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch document';
+      const kind = error instanceof FetchError ? error.kind : 'unknown';
+      console.warn(`external-fetch-document: ${message} (${url})`);
+      return { success: false, error: message, kind };
+    }
   });
 
   // Settings operations
