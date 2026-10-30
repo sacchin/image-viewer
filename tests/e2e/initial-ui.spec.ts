@@ -116,14 +116,9 @@ test.describe('UI Components Initial Display', () => {
   });
 
   test('✅ ウィンドウサイズが適切である', async () => {
-    const page = electronApp.getWindow();
-
-    const viewportSize = await page.viewportSize();
-    expect(viewportSize).toBeTruthy();
-
-    if (viewportSize) {
-      expect(viewportSize.width).toBeGreaterThanOrEqual(800);
-      expect(viewportSize.height).toBeGreaterThanOrEqual(600);
-    }
+    // page.viewportSize() is always null for Electron windows; measure the real window
+    const size = await electronApp.getWindowSize();
+    expect(size.width).toBeGreaterThanOrEqual(800);
+    expect(size.height).toBeGreaterThanOrEqual(600);
   });
 });

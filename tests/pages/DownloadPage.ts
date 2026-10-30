@@ -1,50 +1,32 @@
-import { Page, Locator } from '@playwright/test';
+import { ElectronApplication, Locator, Page } from '@playwright/test';
 
-export interface CrawlJobStub {
-  jobId: string;
+export interface StartCall {
+  url: string;
   title: string;
-  totalImages: number;
   imageUrls: string[];
 }
 
 export interface JobCard {
+  root(): Locator;
   title(): Locator;
   progressText(): Locator;
   progressBar(): Locator;
   status(): Locator;
 }
 
-export interface ProgressEvent {
-  jobId: string;
-  completed: number;
-  total: number;
-  status: 'pending' | 'downloading' | 'completed' | 'error';
-  message?: string;
-}
-
-export interface MockFileSystem {
-  folders: Set<string>;
-  files: Map<string, { path: string; content?: string }>;
-  existingFolders: Set<string>;
-}
-
-export interface DownloadSettings {
-  defaultDownloadPath: string;
-}
-
+/**
+ * Page object for the Download panel.
+ *
+ * Network-facing behaviour is stubbed in the *main* process by replacing the
+ * ipcMain handlers. Objects exposed through contextBridge are frozen, so
+ * reassigning window.electronAPI.* from the renderer silently does nothing.
+ */
 export class DownloadPage {
-  private page: Page;
-  private fetchStub: any = null;
-  private electronApiStub: any = null;
-  private fetchCallCount: number = 0;
-  private startCalls: string[] = [];
+  constructor(private page: Page, private app: ElectronApplication) {}
 
-  constructor(page: Page) {
-    this.page = page;
-  }
+  // --- navigation -----------------------------------------------------------
 
   async openDownloadPanel(): Promise<void> {
-    // Click on the Download button in the side menu
     await this.page.click('[data-testid="side-menu-download"]');
     await this.page.waitForSelector('[data-testid="download-panel"]', { timeout: 5000 });
   }
@@ -54,14 +36,14 @@ export class DownloadPage {
     await this.page.waitForSelector('[data-testid="download-dialog"]', { timeout: 5000 });
   }
 
+  // --- dialog interaction ---------------------------------------------------
+
   async fillUrl(url: string): Promise<void> {
-    const input = this.page.locator('[data-testid="download-dialog-url-input"]');
-    await input.fill(url);
+    await this.page.locator('[data-testid="download-dialog-url-input"]').fill(url);
   }
 
   async getUrlValue(): Promise<string> {
-    const input = this.page.locator('[data-testid="download-dialog-url-input"]');
-    return await input.inputValue();
+    return await this.page.locator('[data-testid="download-dialog-url-input"]').inputValue();
   }
 
   async triggerScrape(): Promise<void> {
@@ -88,46 +70,56 @@ export class DownloadPage {
     await this.page.waitForSelector('[data-testid="download-dialog"]', { state: 'hidden', timeout: 5000 });
   }
 
-  async waitForJobCard(jobId: string): Promise<void> {
-    await this.page.waitForSelector(`[data-testid="job-card-${jobId}"]`, { timeout: 5000 });
-  }
-
   async getScrapeTitle(): Promise<string> {
-    const element = this.page.locator('[data-testid="download-dialog-scrape-title"]');
-    return await element.textContent() || '';
+    return (await this.page.locator('[data-testid="download-dialog-scrape-title"]').textContent()) || '';
   }
 
   async getScrapePageCount(): Promise<string> {
-    const element = this.page.locator('[data-testid="download-dialog-scrape-page-count"]');
-    return await element.textContent() || '';
+    return (await this.page.locator('[data-testid="download-dialog-scrape-page-count"]').textContent()) || '';
   }
 
   async getScrapeImageCount(): Promise<number> {
+    // DownloadDialog publishes the last scrape result for test inspection
     return await this.page.evaluate(() => {
-      const result = (window as any).__scrapeResult;
+      const result = (window as unknown as { __scrapeResult?: { imageUrls: string[] } }).__scrapeResult;
       return result ? result.imageUrls.length : 0;
     });
   }
 
   async getErrorMessage(): Promise<string> {
-    const element = this.page.locator('[data-testid="download-dialog-error"]');
-    return await element.textContent() || '';
+    return (await this.page.locator('[data-testid="download-dialog-error"]').textContent()) || '';
   }
 
   async isStartEnabled(): Promise<boolean> {
-    const button = this.page.locator('[data-testid="download-dialog-start-button"]');
-    return await button.isEnabled();
+    return await this.page.locator('[data-testid="download-dialog-start-button"]').isEnabled();
   }
 
   async hasScrapeResult(): Promise<boolean> {
-    const element = this.page.locator('[data-testid="download-dialog-scrape-result"]');
-    return await element.isVisible();
+    return await this.page.locator('[data-testid="download-dialog-scrape-result"]').isVisible();
   }
 
-  async getJobCard(jobId: string): Promise<JobCard> {
-    const card = this.page.locator(`[data-testid="job-card-${jobId}"]`);
+  // --- job cards ------------------------------------------------------------
 
+  jobCards(): Locator {
+    return this.page.locator('.download-item-job[data-testid^="job-card-"]');
+  }
+
+  async waitForJobCard(jobId: string): Promise<void> {
+    await this.page.waitForSelector(`[data-testid="job-card-${jobId}"]`, { timeout: 5000 });
+  }
+
+  getJobCard(jobId: string): JobCard {
+    return this.cardFromLocator(this.page.locator(`[data-testid="job-card-${jobId}"]`));
+  }
+
+  /** The most recently created job card (cards are prepended to the list). */
+  latestJobCard(): JobCard {
+    return this.cardFromLocator(this.jobCards().first());
+  }
+
+  private cardFromLocator(card: Locator): JobCard {
     return {
+      root: () => card,
       title: () => card.locator('[data-testid="job-card-title"]'),
       progressText: () => card.locator('[data-testid="job-card-progress-text"]'),
       progressBar: () => card.locator('[data-testid="job-card-progress-bar"]'),
@@ -135,292 +127,61 @@ export class DownloadPage {
     };
   }
 
+  // --- main-process stubs ---------------------------------------------------
+
+  /** Make 'fetch-url' return the given HTML without touching the network. */
   async stubFetchWithHtml(html: string): Promise<void> {
-    this.fetchCallCount = 0;
-
-    await this.page.evaluate((htmlContent) => {
-      (window as any).__fetchCallCount = 0;
-
-      // Ensure electronAPI exists
-      if (!window.electronAPI) {
-        console.warn('electronAPI not found, creating mock');
-        (window as any).electronAPI = {};
-      }
-
-      // Override the fetchUrl method completely
-      console.log('Overriding electronAPI.fetchUrl with mock');
-
-      // Simply replace the function rather than using defineProperty
-      window.electronAPI.fetchUrl = async (url: string) => {
-        (window as any).__fetchCallCount++;
-        console.log('Mock fetchUrl called with:', url);
-        console.log('Returning HTML with length:', htmlContent.length);
-
-        // Store the scraped result globally for test assertions
-        const result = {
-          success: true,
-          html: htmlContent
-        };
-
-        return result;
-      };
-
-      console.log('Mock fetchUrl installed successfully');
+    await this.app.evaluate(({ ipcMain }, htmlContent) => {
+      const g = globalThis as unknown as { __fetchCalls: string[] };
+      g.__fetchCalls = [];
+      ipcMain.removeHandler('fetch-url');
+      ipcMain.handle('fetch-url', async (_event, url: string) => {
+        g.__fetchCalls.push(url);
+        return { success: true, html: htmlContent };
+      });
     }, html);
-
-    // Wait a bit to ensure the mock is set up
-    await this.page.waitForTimeout(100);
   }
 
+  /** Make 'fetch-url' fail with the given message. */
   async stubFetchWithError(errorMessage: string): Promise<void> {
-    this.fetchCallCount = 0;
-
-    await this.page.evaluate((message) => {
-      (window as any).__fetchCallCount = 0;
-
-      // Ensure electronAPI exists
-      if (!window.electronAPI) {
-        console.warn('electronAPI not found, creating mock');
-        (window as any).electronAPI = {};
-      }
-
-      // Override the fetchUrl method completely
-      console.log('Overriding electronAPI.fetchUrl with error mock');
-
-      // Simply replace the function rather than using defineProperty
-      window.electronAPI.fetchUrl = async (url: string) => {
-        (window as any).__fetchCallCount++;
-        console.log('Mock fetchUrl error called with:', url);
-        console.log('Returning error:', message);
-
-        return {
-          success: false,
-          error: message
-        };
-      };
-
-      console.log('Mock error fetchUrl installed successfully');
+    await this.app.evaluate(({ ipcMain }, message) => {
+      const g = globalThis as unknown as { __fetchCalls: string[] };
+      g.__fetchCalls = [];
+      ipcMain.removeHandler('fetch-url');
+      ipcMain.handle('fetch-url', async (_event, url: string) => {
+        g.__fetchCalls.push(url);
+        return { success: false, error: message };
+      });
     }, errorMessage);
-
-    // Wait a bit to ensure the mock is set up
-    await this.page.waitForTimeout(100);
   }
 
   async getFetchCallCount(): Promise<number> {
-    return await this.page.evaluate(() => (window as any).__fetchCallCount || 0);
+    return await this.app.evaluate(() => {
+      const g = globalThis as unknown as { __fetchCalls?: string[] };
+      return g.__fetchCalls?.length ?? 0;
+    });
   }
 
-  async setupCrawlStubs(...jobs: CrawlJobStub[]): Promise<void> {
-    this.startCalls = [];
-
-    await this.page.evaluate((jobList) => {
-      (window as any).__startCalls = [];
-      (window as any).__crawlJobs = jobList;
-      (window as any).__progressListeners = [];
-
-      // Stub the Electron IPC API
-      if (!(window as any).electronAPI) {
-        (window as any).electronAPI = {};
-      }
-
-      (window as any).electronAPI.startCrawl = async (url: string, data: any) => {
-        (window as any).__startCalls.push(url);
-
-        const job = (window as any).__crawlJobs.find((j: any) =>
-          url.includes('gallery/A') ? j.jobId === 'job-a' :
-          url.includes('gallery/B') ? j.jobId === 'job-b' :
-          j === (window as any).__crawlJobs[0]
-        );
-
-        if (job) {
-          // Simulate initial job creation
-          setTimeout(() => {
-            const event = new CustomEvent('crawl-job-created', {
-              detail: {
-                jobId: job.jobId,
-                title: job.title,
-                totalImages: job.totalImages,
-                status: 'pending'
-              }
-            });
-            window.dispatchEvent(event);
-          }, 10);
-        }
-
-        return { jobId: job ? job.jobId : 'unknown' };
-      };
-
-      (window as any).electronAPI.onCrawlProgress = (callback: Function) => {
-        (window as any).__progressListeners.push(callback);
-        return () => {
-          const index = (window as any).__progressListeners.indexOf(callback);
-          if (index > -1) {
-            (window as any).__progressListeners.splice(index, 1);
-          }
-        };
-      };
-    }, jobs);
-  }
-
-  async getStartCalls(): Promise<string[]> {
-    const calls = await this.page.evaluate(() => (window as any).__startCalls || []);
-    return calls;
-  }
-
-  async emitProgress(event: ProgressEvent): Promise<void> {
-    await this.page.evaluate((progressEvent) => {
-      const listeners = (window as any).__progressListeners || [];
-      listeners.forEach((callback: Function) => {
-        callback(null, progressEvent);
+  /**
+   * Replace 'start-crawling' with a recorder that never downloads anything and
+   * answers with the given job id.
+   */
+  async stubStartCrawl(jobId: string): Promise<void> {
+    await this.app.evaluate(({ ipcMain }, id) => {
+      const g = globalThis as unknown as { __startCalls: StartCall[] };
+      g.__startCalls = [];
+      ipcMain.removeHandler('start-crawling');
+      ipcMain.handle('start-crawling', async (_event, url: string, data?: { title?: string; imageUrls?: string[] }) => {
+        g.__startCalls.push({ url, title: data?.title ?? '', imageUrls: data?.imageUrls ?? [] });
+        return { jobId: id, status: 'started', url };
       });
-
-      // Also dispatch a custom event for the UI
-      const customEvent = new CustomEvent('crawl-progress', { detail: progressEvent });
-      window.dispatchEvent(customEvent);
-    }, event);
-
-    // Wait a bit for the UI to update
-    await this.page.waitForTimeout(50);
+    }, jobId);
   }
 
-  async restoreElectronApi(): Promise<void> {
-    await this.page.evaluate(() => {
-      delete (window as any).__startCalls;
-      delete (window as any).__crawlJobs;
-      delete (window as any).__progressListeners;
-      delete (window as any).__fetchCallCount;
-      delete (window as any).__mockHtml;
-      delete (window as any).__mockFS;
-      delete (window as any).__downloadSettings;
-
-      // Note: We don't restore fetchUrl as Object.defineProperty makes it harder to restore
-      // The test framework will reload the page between tests anyway
+  async getStartCalls(): Promise<StartCall[]> {
+    return await this.app.evaluate(() => {
+      const g = globalThis as unknown as { __startCalls?: StartCall[] };
+      return g.__startCalls ?? [];
     });
-  }
-
-  async setupFileSystemMock(settings?: DownloadSettings): Promise<void> {
-    const defaultSettings = {
-      defaultDownloadPath: 'C:\\Users\\TestUser\\Downloads'
-    };
-
-    await this.page.evaluate((config) => {
-      // Initialize mock filesystem
-      (window as any).__mockFS = {
-        folders: new Set<string>(),
-        files: new Map<string, any>(),
-        existingFolders: new Set<string>()
-      };
-
-      // Set download settings
-      (window as any).__downloadSettings = config;
-
-      // Mock the settings API
-      if (!window.electronAPI) {
-        (window as any).electronAPI = {};
-      }
-
-      window.electronAPI.getSettings = async () => {
-        return (window as any).__downloadSettings;
-      };
-
-      // Helper function to sanitize folder names
-      (window as any).__sanitizeFolderName = (title: string): string => {
-        if (!title || title.trim() === '') {
-          return `gallery_${Date.now()}`;
-        }
-
-        // Trim first to handle leading/trailing spaces
-        let safe = title.trim();
-        // Windows forbidden characters
-        safe = safe.replace(/[<>:"/\\|?*]/g, '_');
-        // Replace consecutive spaces/underscores with single underscore
-        safe = safe.replace(/[\s_]+/g, '_');
-        // Remove leading/trailing dots
-        safe = safe.replace(/^\.+|\.+$/g, '');
-        // Remove leading/trailing underscores (from replaced spaces)
-        safe = safe.replace(/^_+|_+$/g, '');
-        // Limit length
-        if (safe.length > 200) {
-          safe = safe.substring(0, 200);
-        }
-
-        return safe || `gallery_${Date.now()}`;
-      };
-
-      // Override startCrawl to simulate folder creation
-      const originalStartCrawl = window.electronAPI.startCrawl;
-      window.electronAPI.startCrawl = async (url: string, data: any) => {
-        const fs = (window as any).__mockFS;
-        const settings = (window as any).__downloadSettings;
-        const sanitize = (window as any).__sanitizeFolderName;
-
-        // Sanitize folder name
-        const folderName = sanitize(data.title || 'Untitled');
-        const folderPath = `${settings.defaultDownloadPath}\\${folderName}`;
-
-        // Check if folder exists
-        if (!fs.existingFolders.has(folderPath)) {
-          // Create new folder
-          fs.folders.add(folderPath);
-        }
-
-        // Simulate downloading files
-        const imageUrls = data.imageUrls || [];
-        for (let i = 0; i < imageUrls.length; i++) {
-          const fileName = `${String(i + 1).padStart(3, '0')}.jpg`;
-          const filePath = `${folderPath}\\${fileName}`;
-          fs.files.set(filePath, { path: filePath, content: `mock-image-${i + 1}` });
-        }
-
-        // Call original if it exists
-        if (originalStartCrawl && typeof originalStartCrawl === 'function') {
-          return await originalStartCrawl(url, data);
-        }
-
-        // Or add to __startCalls if available
-        if ((window as any).__startCalls) {
-          (window as any).__startCalls.push(url);
-        }
-
-        return { jobId: `job-${Date.now()}` };
-      };
-    }, settings || defaultSettings);
-  }
-
-  async mockExistingFolder(folderPath: string): Promise<void> {
-    await this.page.evaluate((path) => {
-      const fs = (window as any).__mockFS;
-      if (fs) {
-        fs.existingFolders.add(path);
-        fs.folders.add(path);
-      }
-    }, folderPath);
-  }
-
-  async getCreatedFolders(): Promise<string[]> {
-    return await this.page.evaluate(() => {
-      const fs = (window as any).__mockFS;
-      return fs ? Array.from(fs.folders) : [];
-    });
-  }
-
-  async getDownloadedFiles(): Promise<Array<{ path: string; content?: string }>> {
-    return await this.page.evaluate(() => {
-      const fs = (window as any).__mockFS;
-      if (!fs) return [];
-
-      const files: Array<{ path: string; content?: string }> = [];
-      fs.files.forEach((value: any) => {
-        files.push(value);
-      });
-      return files;
-    });
-  }
-
-  async getSanitizedFolderName(title: string): Promise<string> {
-    return await this.page.evaluate((t) => {
-      const sanitize = (window as any).__sanitizeFolderName;
-      return sanitize ? sanitize(t) : t;
-    }, title);
   }
 }

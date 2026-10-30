@@ -1,41 +1,39 @@
 import { test, expect } from '@playwright/test';
 import { ElectronAppHelper } from '../helpers/electron-app';
+import { makeTempDir, removeDir, writeTree } from '../helpers/fixtures';
 
 let electronApp: ElectronAppHelper;
+let testDir: string;
 
 test.describe('Image Pan Functionality - Simple', () => {
   test.beforeEach(async () => {
-    // Launch app
+    testDir = await makeTempDir('iv-pan-simple');
+    await writeTree(testDir, { images: ['sample.png'] });
+
     electronApp = new ElectronAppHelper();
-    await electronApp.launch();
+    await electronApp.launch({ downloadPath: testDir });
   });
 
   test.afterEach(async () => {
     await electronApp.close();
+    await removeDir(testDir);
   });
 
-  test('should show pan cursor when image is zoomed', async () => {
-    const window = electronApp.getWindow();
+  test('renders the pannable viewport once an image is shown', async () => {
+    const page = electronApp.getWindow();
 
-    // Navigate to Explore panel
-    await window.click('[data-menu-item="explore"]');
-    await window.waitForSelector('.explore-panel', { state: 'visible', timeout: 10000 });
+    await page.click('[data-menu-item="explore"]');
+    await page.waitForSelector('.explore-panel', { state: 'visible', timeout: 10000 });
 
-    // Check if there's a default test image or create a simple test case
-    // For now, just verify the implementation is in place
+    // No viewport before an image is selected
+    await expect(page.locator('.image-preview-viewport')).toHaveCount(0);
 
-    // Create a mock scenario to verify the pan implementation
-    await window.evaluate(() => {
-      // Find image preview component if it exists
-      const viewport = document.querySelector('.image-preview-viewport');
-      if (viewport) {
-        // Set a data attribute to verify our changes are in place
-        viewport.setAttribute('data-test', 'pan-enabled');
-      }
-    });
+    await page.locator('.folder-node-item', { hasText: 'images' }).click();
+    await page.locator('.file-list-item', { hasText: 'sample.png' }).click();
 
-    // Verify the viewport exists and has our implementation
-    const viewportExists = await window.locator('.image-preview-viewport').count();
-    expect(viewportExists).toBeGreaterThan(0);
+    const viewport = page.locator('.image-preview-viewport');
+    await expect(viewport).toBeVisible();
+    await expect(viewport.locator('.preview-image')).toBeVisible();
+    await expect(page.locator('.zoom-level')).toHaveText('100%');
   });
 });

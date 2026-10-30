@@ -6,7 +6,7 @@ interface StatusBarProps {
   currentPanel?: string;
 }
 
-const StatusBar: React.FC<StatusBarProps> = ({ selectedWork, currentPanel }) => {
+const StatusBar: React.FC<StatusBarProps> = ({ currentPanel }) => {
   return (
     <div className="status-bar" data-testid="status-bar">
       <span className="status-bar-item" data-testid="item-count">

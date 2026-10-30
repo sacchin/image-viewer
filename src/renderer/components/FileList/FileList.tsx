@@ -117,7 +117,7 @@ const FileList: React.FC<FileListProps> = ({ folderPath, onFileSelect }) => {
 
   if (loading) {
     return (
-      <div className="file-list-container">
+      <div className="file-list-container" data-testid="file-list">
         <div className="file-list-loading">Loading...</div>
       </div>
     );
@@ -125,7 +125,7 @@ const FileList: React.FC<FileListProps> = ({ folderPath, onFileSelect }) => {
 
   if (!folderPath) {
     return (
-      <div className="file-list-container">
+      <div className="file-list-container" data-testid="file-list">
         <div className="file-list-empty">Select a folder to view images</div>
       </div>
     );
@@ -133,14 +133,14 @@ const FileList: React.FC<FileListProps> = ({ folderPath, onFileSelect }) => {
 
   if (files.length === 0) {
     return (
-      <div className="file-list-container">
+      <div className="file-list-container" data-testid="file-list">
         <div className="file-list-empty">No images found in this folder</div>
       </div>
     );
   }
 
   return (
-    <div className="file-list-container" ref={listRef} tabIndex={0}>
+    <div className="file-list-container" data-testid="file-list" ref={listRef} tabIndex={0}>
       <div className="file-list-header">
         <span className="file-count">{files.length} images</span>
       </div>

@@ -46,7 +46,6 @@ test.describe('Application Launch', () => {
 
   test('ウィンドウの最小サイズが設定されている', async () => {
     const app = electronApp.getApp();
-    const window = electronApp.getWindow();
 
     const minSize = await app.evaluate(async ({ BrowserWindow }) => {
       const windows = BrowserWindow.getAllWindows();

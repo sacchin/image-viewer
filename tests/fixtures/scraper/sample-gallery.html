@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<!--
+  Synthetic fixture modelled on the gallery page layout that scraper.ts
+  understands: div.info > h2 (title), div.pages > h3 (page count) and
+  div.gallery div.preview_thumb img[data-src] (thumbnails).
+  No real site content is included.
+-->
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Sample Gallery - Fixture</title>
+</head>
+<body>
+	<div id="content">
+		<div class="gallery_top">
+			<div class="cover">
+				<a href="https://gallery.example.com/gallery/123456/1/"><img class="lazy" data-src="//images.example.com/001/123456/cover.jpg" alt="Sample Gallery cover" src="./sample_files/cover.jpg"></a>
+			</div>
+			<div class="info">
+				<h1>Sample Gallery Title</h1>
+				<h2>[Fixture Author] Sample Gallery Title (Sample Series)</h2>
+				<div class="tags">
+					<h3>Parodies:</h3>
+					<div class="tag_list"><a href="#"><span class="tag">sample series</span></a></div>
+					<h3>Tags:</h3>
+					<div class="tag_list"><a href="#"><span class="tag">fixture</span></a></div>
+					<h3>Artists:</h3>
+					<div class="tag_list"><a href="#"><span class="tag">fixture author</span></a></div>
+					<h3>Languages:</h3>
+					<div class="tag_list"><a href="#"><span class="tag">japanese</span></a></div>
+					<div class="pages">
+						<h3>Pages: 9</h3>
+					</div>
+					<div class="uploaded">
+						<h3>Uploaded: 1 year ago</h3>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="gallery">
+				<div class="preview_thumb">
+					<a href="https://gallery.example.com/gallery/123456/1/"><img class="lazy" data-src="https://images.example.com/001/123456/1t.jpg" alt="" src="./sample_files/1t.jpg"></a>
+				</div>
+				<div class="preview_thumb">
+					<a href="https://gallery.example.com/gallery/123456/2/"><img class="lazy" data-src="https://images.example.com/001/123456/2t.jpg" alt="" src="./sample_files/2t.jpg"></a>
+				</div>
+				<div class="preview_thumb">
+					<a href="https://gallery.example.com/gallery/123456/3/"><img class="lazy" data-src="https://images.example.com/001/123456/3t.jpg" alt="" src="./sample_files/3t.jpg"></a>
+				</div>
+				<div class="preview_thumb">
+					<a href="https://gallery.example.com/gallery/123456/4/"><img class="lazy" data-src="https://images.example.com/001/123456/4t.jpg" alt="" src="./sample_files/4t.jpg"></a>
+				</div>
+				<div class="preview_thumb">
+					<a href="https://gallery.example.com/gallery/123456/5/"><img class="lazy" data-src="https://images.example.com/001/123456/5t.jpg" alt="" src="./sample_files/5t.jpg"></a>
+				</div>
+				<div class="preview_thumb">
+					<a href="https://gallery.example.com/gallery/123456/6/"><img class="lazy" data-src="https://images.example.com/001/123456/6t.jpg" alt="" src="./sample_files/6t.jpg"></a>
+				</div>
+				<div class="preview_thumb">
+					<a href="https://gallery.example.com/gallery/123456/7/"><img class="lazy" data-src="https://images.example.com/001/123456/7t.jpg" alt="" src="./sample_files/7t.jpg"></a>
+				</div>
+				<div class="preview_thumb">
+					<a href="https://gallery.example.com/gallery/123456/8/"><img class="lazy" data-src="https://images.example.com/001/123456/8t.jpg" alt="" src="./sample_files/8t.jpg"></a>
+				</div>
+				<div class="preview_thumb">
+					<a href="https://gallery.example.com/gallery/123456/9/"><img class="lazy" data-src="https://images.example.com/001/123456/9t.jpg" alt="" src="./sample_files/9t.jpg"></a>
+				</div>
+		</div>
+	</div>
+</body>
+</html>

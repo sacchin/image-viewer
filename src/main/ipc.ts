@@ -6,6 +6,7 @@ import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
 import { settingsManager } from './settings';
+import { sanitizeFolderName } from './sanitizeFolderName';
 
 // Download job tracking
 interface DownloadJob {
@@ -165,22 +166,6 @@ function sendProgressUpdate(mainWindow: BrowserWindow | null, job: DownloadJob, 
   });
 }
 
-// Helper function to sanitize folder names for file system
-function sanitizeFolderName(title: string): string {
-  // Replace Windows forbidden characters
-  let safe = title.replace(/[<>:"/\\|?*]/g, '_');
-  // Replace consecutive spaces or underscores with single underscore
-  safe = safe.replace(/[\s_]+/g, '_');
-  // Remove leading/trailing whitespace and dots
-  safe = safe.trim().replace(/^\.+|\.+$/g, '');
-  // Limit length to 200 characters
-  if (safe.length > 200) {
-    safe = safe.substring(0, 200);
-  }
-  // Fallback if empty
-  return safe || `gallery_${Date.now()}`;
-}
-
 // Helper function for natural sorting (numeric-aware sorting)
 function naturalSort(a: string, b: string): number {
   // Split strings into parts of numbers and non-numbers
@@ -253,7 +238,7 @@ async function getNextFileNumber(dirPath: string): Promise<number> {
       .filter(num => !isNaN(num));
 
     return numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
-  } catch (error) {
+  } catch {
     return 1;
   }
 }

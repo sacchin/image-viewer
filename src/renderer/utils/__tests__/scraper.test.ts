@@ -15,15 +15,17 @@ const ensureDomParser = () => {
 test('scrapeGalleryData extracts data from sample html', async () => {
   ensureDomParser();
 
-  const samplePath = resolve(__dirname, '../../../..', 'test_data', 'sample.html');
+  const samplePath = resolve(__dirname, '../../../..', 'tests', 'fixtures', 'scraper', 'sample-gallery.html');
   const html = readFileSync(samplePath, 'utf-8');
 
   const result = await scrapeGalleryData(html);
 
-  assert.equal(result.title, '[星茶] なんだかんだハメさせてくれるチャイナありす (アイドルマスターシンデレラガールズ)');
+  assert.equal(result.title, '[Fixture Author] Sample Gallery Title (Sample Series)');
   assert.equal(result.pageCount, 9);
   assert.equal(result.imageUrls.length, 9);
-  assert.ok(result.imageUrls[0].startsWith('https://'));
+  assert.equal(result.imageUrls[0], 'https://images.example.com/001/123456/1.jpg');
+  assert.equal(result.imageUrls[8], 'https://images.example.com/001/123456/9.jpg');
+  assert.equal(result.warnings, undefined);
 });
 
 test('scrapeGalleryData handles missing title with warning', async () => {

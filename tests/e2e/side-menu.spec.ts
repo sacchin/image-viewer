@@ -14,17 +14,17 @@ test.describe('Side Menu Navigation', () => {
   });
 
   test('✅ サイドメニューが表示される', async () => {
-    const window = electronApp.getWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
     // サイドメニューコンテナの存在確認
-    const sideMenu = await window.locator('.side-menu').isVisible();
+    const sideMenu = await page.locator('.side-menu').isVisible();
     expect(sideMenu).toBe(true);
   });
 
   test('✅ 4つのメニュー項目が表示される', async () => {
-    const window = electronApp.getWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
     // 各メニュー項目の存在確認
     const menuItems = [
@@ -35,49 +35,49 @@ test.describe('Side Menu Navigation', () => {
     ];
 
     for (const item of menuItems) {
-      const isVisible = await window.locator(item.selector).isVisible();
+      const isVisible = await page.locator(item.selector).isVisible();
       expect(isVisible).toBe(true);
 
-      const text = await window.locator(item.selector).textContent();
+      const text = await page.locator(item.selector).textContent();
       expect(text).toContain(item.label);
     }
   });
 
   test('✅ デフォルトでExploreパネルがアクティブ', async () => {
-    const window = electronApp.getWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
     // Exploreメニュー項目がアクティブ状態であることを確認
-    const exploreActive = await window.locator('[data-menu-item="explore"].active').isVisible();
+    const exploreActive = await page.locator('[data-menu-item="explore"].active').isVisible();
     expect(exploreActive).toBe(true);
 
     // Exploreパネルが表示されていることを確認
-    const explorePanel = await window.locator('[data-panel="explore"]').isVisible();
+    const explorePanel = await page.locator('[data-panel="explore"]').isVisible();
     expect(explorePanel).toBe(true);
   });
 
   test('✅ メニュー項目をクリックするとアクティブ状態が変わる', async () => {
-    const window = electronApp.getWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
     // Downloadメニューをクリック
-    await window.click('[data-menu-item="download"]');
-    await window.waitForTimeout(100);
+    await page.click('[data-menu-item="download"]');
+    await page.waitForTimeout(100);
 
     // Downloadがアクティブになる
-    const downloadActive = await window.locator('[data-menu-item="download"].active').isVisible();
+    const downloadActive = await page.locator('[data-menu-item="download"].active').isVisible();
     expect(downloadActive).toBe(true);
 
     // Exploreがアクティブでなくなる
-    const exploreActive = await window.locator('[data-menu-item="explore"]:not(.active)').isVisible();
+    const exploreActive = await page.locator('[data-menu-item="explore"]:not(.active)').isVisible();
     expect(exploreActive).toBe(true);
   });
 
   test('✅ メニュー項目のホバー効果が動作する', async () => {
-    const window = electronApp.getWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
-    const logItem = window.locator('[data-menu-item="log"]');
+    const logItem = page.locator('[data-menu-item="log"]');
 
     // ホバー前の背景色を取得
     const beforeHover = await logItem.evaluate((el) => {
@@ -86,7 +86,7 @@ test.describe('Side Menu Navigation', () => {
 
     // ホバーする
     await logItem.hover();
-    await window.waitForTimeout(100);
+    await page.waitForTimeout(100);
 
     // ホバー後の背景色を取得
     const afterHover = await logItem.evaluate((el) => {
@@ -99,10 +99,10 @@ test.describe('Side Menu Navigation', () => {
   });
 
   test('✅ サイドメニューの幅が適切', async () => {
-    const window = electronApp.getWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
-    const sideMenu = window.locator('.side-menu');
+    const sideMenu = page.locator('.side-menu');
     const width = await sideMenu.evaluate((el) => {
       return el.getBoundingClientRect().width;
     });
@@ -113,13 +113,13 @@ test.describe('Side Menu Navigation', () => {
   });
 
   test('✅ メニューアイコンが表示される', async () => {
-    const window = electronApp.getWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
     const menuItems = ['download', 'explore', 'log', 'setting'];
 
     for (const item of menuItems) {
-      const menuItem = window.locator(`[data-menu-item="${item}"]`);
+      const menuItem = page.locator(`[data-menu-item="${item}"]`);
 
       // アイコン要素があるか確認（SVGまたはアイコンフォント）
       const hasIcon = await menuItem.evaluate((el) => {
@@ -135,10 +135,10 @@ test.describe('Side Menu Navigation', () => {
   });
 
   test('✅ メニュー項目の間隔が適切', async () => {
-    const window = electronApp.getWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
-    const menuItems = await window.locator('[data-menu-item]').all();
+    const menuItems = await page.locator('[data-menu-item]').all();
 
     if (menuItems.length >= 2) {
       const firstItem = menuItems[0];
@@ -159,8 +159,8 @@ test.describe('Side Menu Navigation', () => {
   });
 
   test('📸 サイドメニューのスクリーンショット', async () => {
-    const window = electronApp.getWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const page = electronApp.getWindow();
+    await page.waitForLoadState('domcontentloaded');
 
     // サイドメニューのスクリーンショットを撮影
     await electronApp.takeScreenshot('side-menu');
@@ -168,8 +168,8 @@ test.describe('Side Menu Navigation', () => {
     // 各メニュー項目をホバーした状態でスクリーンショット
     const menuItems = ['download', 'explore', 'log', 'setting'];
     for (const item of menuItems) {
-      await window.hover(`[data-menu-item="${item}"]`);
-      await window.waitForTimeout(100);
+      await page.hover(`[data-menu-item="${item}"]`);
+      await page.waitForTimeout(100);
       await electronApp.takeScreenshot(`side-menu-hover-${item}`);
     }
   });

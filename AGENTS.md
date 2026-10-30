@@ -21,46 +21,60 @@ npm run build
 npm start
 ```
 
-### E2Eテスト（Playwright）
+### テスト
 
-#### テストの実行方法
+#### ユニットテスト（node:test + ts-node）
 ```bash
-# 全てのE2Eテストを実行（ヘッドレスモード）
+# すべてのユニットテストを実行（src/**/__tests__/*.test.ts）
+npm run test:unit
+```
+- `src/renderer/utils/__tests__/scraper.test.ts`: ギャラリーHTMLのスクレイピング（フィクスチャ: `tests/fixtures/scraper/sample-gallery.html`）
+- `src/main/__tests__/sanitizeFolderName.test.ts`: ダウンロード先フォルダ名のサニタイズ
+
+#### E2Eテスト（Playwright）
+```bash
+# ビルドしてから全てのE2Eテストを実行（約10分）
 npm run test:e2e
 
-# ブラウザ表示付きでテストを実行
+# ブラウザ表示付き / デバッグ（ステップ実行）
 npm run test:e2e:headed
-
-# デバッグモードでテストを実行（ステップ実行可能）
 npm run test:e2e:debug
 
-# 特定のテストファイルのみ実行
+# 特定のテストファイルのみ実行（事前に npm run build が必要）
 npx playwright test app-launch.spec.ts
 
 # テスト結果のレポートを表示
 npx playwright show-report
 ```
 
+E2E の仕組み:
+- `tests/helpers/electron-app.ts` が `dist/main/index.js` を起動する。`--user-data-dir` に一時フォルダを渡すため、
+  開発者の `%APPDATA%\Electron\settings.json` を読んだり汚したりしない。
+- `launch({ downloadPath })` で設定ファイルを事前に書き込み、テスト用の一時フォルダをダウンロード先（= Explore の
+  ルート）として起動できる。フィクスチャ生成は `tests/helpers/fixtures.ts`（`writeTree`, `startImageServer`, `galleryHtml`）。
+- ネットワーク依存の処理は **メインプロセス側** でスタブする（`tests/pages/DownloadPage.ts` が
+  `electronApp.evaluate` で `ipcMain` のハンドラを差し替える）。contextBridge で公開された
+  `window.electronAPI` は凍結されているため、レンダラー側で代入してもモックにならない。
+- 画像ダウンロードの E2E はローカル HTTP サーバーから配信し、実際のファイルシステムで検証する。外部通信は行わない。
+- VSCode のターミナルから実行する場合、環境変数 `ELECTRON_RUN_AS_NODE` はヘルパーが自動で除去する。
+
 #### テストカテゴリ
-- **app-launch.spec.ts**: アプリケーション起動テスト（6テスト）
-  - Electronアプリの起動確認
-  - ウィンドウサイズ・タイトルの検証
+- **app-launch.spec.ts**: アプリ起動、ウィンドウサイズ・タイトル
+- **initial-ui.spec.ts**: 初期表示（サイドメニュー、パネル、ステータスバー）
+- **side-menu.spec.ts** / **panel-navigation.spec.ts** / **ui-integration.spec.ts**: サイドメニューとパネル切り替え
+- **image-exploration.spec.ts**: Explore パネル（フォルダツリー、ファイル一覧、プレビュー、設定連携）
+- **ui-improvements.spec.ts**: doc/adr/1-8（横スクロール、矢印キー操作、深い階層の展開、ホイールズーム）
+- **image-pan.spec.ts** / **image-pan-simple.spec.ts**: ズーム時のドラッグ移動とカーソル
+- **download-workflow.spec.ts**: ダウンロードダイアログとジョブカード（fetch / crawl はメイン側スタブ）
+- **download-folder-creation.spec.ts**: doc/adr/1-6 のフォルダ名生成を実ファイルシステムで検証
 
-- **initial-ui.spec.ts**: UI初期表示テスト（9テスト）
-  - 各UIコンポーネントの表示確認
-  - 初期状態の検証
-
-- **menu.spec.ts**: メニューテスト（9テスト）
-  - 各メニュー項目の存在確認
-  - ショートカットキーの検証
-
-#### テスト前の準備
+#### 静的チェック
 ```bash
-# アプリケーションのビルドが必要
-npm run build
+# テストコードの型チェック（tests/tsconfig.json）
+npm run typecheck:tests
 
-# テストのみ実行する場合
-npm run test:e2e
+# ESLint（eslint.config.js: flat config）
+npm run lint
 ```
 
 #### CI/CD環境での実行
@@ -71,8 +85,9 @@ npm run test:e2e
 
 ### コミット前のチェック事項
 1. ビルドが成功すること: `npm run build`
-2. E2Eテストが全て合格すること: `npm run test:e2e`
-3. 変更内容に応じて新しいテストを追加すること
+2. ユニットテストと型チェック・Lint が通ること: `npm run test:unit && npm run typecheck:tests && npm run lint`
+3. E2Eテストが全て合格すること: `npm run test:e2e`
+4. 変更内容に応じて新しいテストを追加すること
 
 ## コーディング規約（要点）
 <!-- - TypeScript: strict。import順序はeslint-plugin-importに従う。PRごとに型エラーゼロ。

@@ -140,13 +140,13 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
     e.preventDefault();
   };
 
-  const handleMouseLeave = (e: React.MouseEvent) => {
+  const handleMouseLeave = () => {
     setIsDragging(false);
   };
 
   if (!imagePath) {
     return (
-      <div className="image-preview-container">
+      <div className="image-preview-container" data-testid="image-preview">
         <div className="image-preview-empty">
           Select an image to preview
         </div>
@@ -156,7 +156,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
 
   if (loading) {
     return (
-      <div className="image-preview-container">
+      <div className="image-preview-container" data-testid="image-preview">
         <div className="image-preview-loading">
           Loading image...
         </div>
@@ -166,7 +166,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
 
   if (error) {
     return (
-      <div className="image-preview-container">
+      <div className="image-preview-container" data-testid="image-preview">
         <div className="image-preview-error">
           {error}
         </div>
@@ -179,7 +179,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ imagePath }) => {
   }
 
   return (
-    <div className="image-preview-container" ref={containerRef}>
+    <div className="image-preview-container" data-testid="image-preview" ref={containerRef}>
       <div
         className="image-preview-viewport"
         ref={viewportRef}

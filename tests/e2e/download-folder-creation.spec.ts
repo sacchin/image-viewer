@@ -1,267 +1,121 @@
 import { test, expect } from '@playwright/test';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { ElectronAppHelper } from '../helpers/electron-app';
 import { DownloadPage } from '../pages/DownloadPage';
+import { galleryHtml, ImageServer, makeTempDir, removeDir, startImageServer } from '../helpers/fixtures';
 
-const VALID_HTML_WITH_TITLE = (title: string) => `
-<html>
-  <body>
-    <div class="info">
-      <h2>${title}</h2>
-    </div>
-    <div class="gallery">
-      <div class="preview_thumb"><img data-src="https://cdn.test/image-1.jpg" /></div>
-      <div class="preview_thumb"><img data-src="https://cdn.test/image-2.jpg" /></div>
-      <div class="preview_thumb"><img data-src="https://cdn.test/image-3.jpg" /></div>
-    </div>
-  </body>
-</html>`;
-
-const HTML_WITHOUT_TITLE = `
-<html>
-  <body>
-    <div class="gallery">
-      <div class="preview_thumb"><img data-src="https://cdn.test/image-1.jpg" /></div>
-      <div class="preview_thumb"><img data-src="https://cdn.test/image-2.jpg" /></div>
-    </div>
-  </body>
-</html>`;
-
+/**
+ * End-to-end: the real crawler in the main process downloads from a local
+ * HTTP server into the configured download root, so folder naming and file
+ * numbering are verified on the actual file system (doc/adr/1-6.md).
+ */
 test.describe('Download folder creation based on title (doc/1-6)', () => {
   let electronApp: ElectronAppHelper;
-  let downloadPage: DownloadPage | undefined;
-  const testDownloadPath = 'C:\\Users\\TestUser\\Downloads';
+  let downloadPage: DownloadPage;
+  let downloadRoot: string;
+  let server: ImageServer;
 
   test.beforeEach(async () => {
+    server = await startImageServer();
+    downloadRoot = await makeTempDir('iv-dl');
     electronApp = new ElectronAppHelper();
-    await electronApp.launch();
-    const window = electronApp.getWindow();
-    downloadPage = new DownloadPage(window);
-
-    // Wait for electronAPI to be available
-    await window.waitForFunction(() => window.electronAPI !== undefined, { timeout: 10000 });
-
-    // Setup filesystem mock
-    await downloadPage.setupFileSystemMock({
-      defaultDownloadPath: testDownloadPath
-    });
-
+    await electronApp.launch({ downloadPath: downloadRoot });
+    downloadPage = new DownloadPage(electronApp.getWindow(), electronApp.getApp());
     await downloadPage.openDownloadPanel();
   });
 
   test.afterEach(async () => {
-    try {
-      if (downloadPage) {
-        await downloadPage.restoreElectronApi();
-      }
-    } catch {
-      // Window might already be closed; ignore cleanup failures.
-    } finally {
-      await electronApp.close();
-    }
+    await electronApp.close();
+    await server.close();
+    await removeDir(downloadRoot);
   });
 
-  test('creates folder with sanitized title name', async () => {
-    const title = '[Author] Sample Gallery Title';
-    const expectedFolderName = 'Author_Sample_Gallery_Title';
+  /** Scrape a gallery with the given title, start the job and wait until it has finished. */
+  async function downloadGallery(title: string | null, pageCount: number, urlSlug: string): Promise<void> {
+    const html = galleryHtml({ title, pageCount, imageBase: `${server.baseUrl}/g/` });
+    await downloadPage.stubFetchWithHtml(html);
+    await downloadPage.openCreateJobDialog();
+    await downloadPage.fillUrl(`https://example.com/gallery/${urlSlug}`);
+    await downloadPage.triggerScrape();
+    await downloadPage.waitForScrapeResult();
+    await downloadPage.triggerStart();
+    await downloadPage.waitForDialogToClose();
 
-    // Setup mocks before opening dialog
-    await downloadPage!.stubFetchWithHtml(VALID_HTML_WITH_TITLE(title));
-    await downloadPage!.setupCrawlStubs();
-    await downloadPage!.openCreateJobDialog();
-    await downloadPage!.fillUrl('https://example.com/gallery/normal-title');
-    await downloadPage!.triggerScrape();
-    await downloadPage!.waitForScrapeResult();
+    const card = downloadPage.latestJobCard();
+    await expect(card.root()).toBeVisible();
+    await expect(card.status()).toHaveText(/completed|error/i, { timeout: 20000 });
+  }
 
-    expect(await downloadPage!.getScrapeTitle()).toBe(title);
+  async function listFolders(): Promise<string[]> {
+    const entries = await fs.readdir(downloadRoot, { withFileTypes: true });
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name).sort();
+  }
 
-    await downloadPage!.triggerStart();
-    await downloadPage!.waitForDialogToClose();
+  async function listFiles(folderName: string): Promise<string[]> {
+    return (await fs.readdir(path.join(downloadRoot, folderName))).sort();
+  }
 
-    const createdFolders = await downloadPage!.getCreatedFolders();
-    const expectedPath = `${testDownloadPath}\\${expectedFolderName}`;
+  test('creates folder with sanitized title name and numbered files', async () => {
+    await downloadGallery('[Author] Sample Gallery Title', 3, 'normal-title');
 
-    expect(createdFolders).toContain(expectedPath);
-
-    const downloadedFiles = await downloadPage!.getDownloadedFiles();
-    expect(downloadedFiles.length).toBe(3);
-    expect(downloadedFiles[0].path).toBe(`${expectedPath}\\001.jpg`);
-    expect(downloadedFiles[1].path).toBe(`${expectedPath}\\002.jpg`);
-    expect(downloadedFiles[2].path).toBe(`${expectedPath}\\003.jpg`);
+    expect(await listFolders()).toEqual(['[Author]_Sample_Gallery_Title']);
+    expect(await listFiles('[Author]_Sample_Gallery_Title')).toEqual(['001.jpg', '002.jpg', '003.jpg']);
+    await expect(downloadPage.latestJobCard().status()).toHaveText(/completed/i);
+    await expect(downloadPage.latestJobCard().progressText()).toContainText('3/3');
+    expect(server.requests).toEqual(['/g/1.jpg', '/g/2.jpg', '/g/3.jpg']);
   });
 
   test('sanitizes special characters in title', async () => {
     const testCases = [
-      {
-        title: 'Title: with/special*chars?',
-        expected: 'Title_with_special_chars_'
-      },
-      {
-        title: 'Title<>with|pipe"and*quote',
-        expected: 'Title_with_pipe_and_quote'
-      },
-      {
-        title: 'Title\\with\\backslash',
-        expected: 'Title_with_backslash'
-      }
+      { title: 'Title: with/special*chars?', expected: 'Title_with_special_chars_' },
+      { title: 'Title<>with|pipe"and*quote', expected: 'Title_with_pipe_and_quote' },
+      { title: 'Title\\with\\backslash', expected: 'Title_with_backslash' }
     ];
 
-    for (const testCase of testCases) {
-      await downloadPage!.stubFetchWithHtml(VALID_HTML_WITH_TITLE(testCase.title));
-      await downloadPage!.setupCrawlStubs();
-      await downloadPage!.openCreateJobDialog();
-      await downloadPage!.fillUrl(`https://example.com/gallery/${testCase.title}`);
-      await downloadPage!.triggerScrape();
-      await downloadPage!.waitForScrapeResult();
-
-      await downloadPage!.triggerStart();
-      await downloadPage!.waitForDialogToClose();
-
-      const createdFolders = await downloadPage!.getCreatedFolders();
-      const expectedPath = `${testDownloadPath}\\${testCase.expected}`;
-
-      expect(createdFolders).toContain(expectedPath);
+    for (const [index, testCase] of testCases.entries()) {
+      await downloadGallery(testCase.title, 1, `special-${index}`);
+      expect(await listFolders()).toContain(testCase.expected);
+      expect(await listFiles(testCase.expected)).toEqual(['001.jpg']);
     }
   });
 
-  test('handles empty or missing title with fallback name', async () => {
-    await downloadPage!.stubFetchWithHtml(HTML_WITHOUT_TITLE);
-    await downloadPage!.setupCrawlStubs();
-    await downloadPage!.openCreateJobDialog();
-    await downloadPage!.fillUrl('https://example.com/gallery/no-title');
-    await downloadPage!.triggerScrape();
-    await downloadPage!.waitForScrapeResult();
+  test('falls back to "Untitled" when the gallery has no title', async () => {
+    await downloadGallery(null, 2, 'no-title');
 
-    // Title should be empty
-    expect(await downloadPage!.getScrapeTitle()).toBe('');
-
-    await downloadPage!.triggerStart();
-    await downloadPage!.waitForDialogToClose();
-
-    const createdFolders = await downloadPage!.getCreatedFolders();
-
-    // Should create folder with fallback name pattern
-    const folderPath = createdFolders.find(f => f.startsWith(`${testDownloadPath}\\gallery_`));
-    expect(folderPath).toBeDefined();
-
-    const downloadedFiles = await downloadPage!.getDownloadedFiles();
-    expect(downloadedFiles.length).toBe(2);
+    expect(await listFolders()).toEqual(['Untitled']);
+    expect(await listFiles('Untitled')).toEqual(['001.jpg', '002.jpg']);
   });
 
   test('truncates long title to 200 characters', async () => {
-    const longTitle = 'A'.repeat(250);
-    const expectedFolderName = 'A'.repeat(200);
+    await downloadGallery('A'.repeat(250), 1, 'long-title');
 
-    await downloadPage!.stubFetchWithHtml(VALID_HTML_WITH_TITLE(longTitle));
-    await downloadPage!.setupCrawlStubs();
-    await downloadPage!.openCreateJobDialog();
-    await downloadPage!.fillUrl('https://example.com/gallery/long-title');
-    await downloadPage!.triggerScrape();
-    await downloadPage!.waitForScrapeResult();
-
-    await downloadPage!.triggerStart();
-    await downloadPage!.waitForDialogToClose();
-
-    const createdFolders = await downloadPage!.getCreatedFolders();
-    const expectedPath = `${testDownloadPath}\\${expectedFolderName}`;
-
-    expect(createdFolders).toContain(expectedPath);
+    expect(await listFolders()).toEqual(['A'.repeat(200)]);
   });
 
   test('uses existing folder when same title is downloaded again', async () => {
-    const title = '[Author] Duplicate Gallery';
-    const sanitizedName = 'Author_Duplicate_Gallery';
-    const existingFolderPath = `${testDownloadPath}\\${sanitizedName}`;
+    const folderName = '[Author]_Duplicate_Gallery';
+    const existing = path.join(downloadRoot, folderName);
+    await fs.mkdir(existing);
+    await fs.writeFile(path.join(existing, '001.jpg'), 'pre-existing');
 
-    // Mock existing folder
-    await downloadPage!.mockExistingFolder(existingFolderPath);
+    await downloadGallery('[Author] Duplicate Gallery', 2, 'duplicate');
 
-    await downloadPage!.stubFetchWithHtml(VALID_HTML_WITH_TITLE(title));
-    await downloadPage!.setupCrawlStubs();
-    await downloadPage!.openCreateJobDialog();
-    await downloadPage!.fillUrl('https://example.com/gallery/duplicate');
-    await downloadPage!.triggerScrape();
-    await downloadPage!.waitForScrapeResult();
-
-    await downloadPage!.triggerStart();
-    await downloadPage!.waitForDialogToClose();
-
-    const createdFolders = await downloadPage!.getCreatedFolders();
-
-    // Should still contain the existing folder path
-    expect(createdFolders).toContain(existingFolderPath);
-
-    // Should not create a new folder with different name
-    const duplicateFolders = createdFolders.filter(f =>
-      f.startsWith(`${testDownloadPath}\\${sanitizedName}`)
-    );
-    expect(duplicateFolders.length).toBe(1);
-
-    // Files should be downloaded to the existing folder
-    const downloadedFiles = await downloadPage!.getDownloadedFiles();
-    expect(downloadedFiles.every(f => f.path.startsWith(existingFolderPath))).toBe(true);
+    // No second folder, and numbering continues after the existing file
+    expect(await listFolders()).toEqual([folderName]);
+    expect(await listFiles(folderName)).toEqual(['001.jpg', '002.jpg', '003.jpg']);
+    expect(await fs.readFile(path.join(existing, '001.jpg'), 'utf8')).toBe('pre-existing');
   });
 
   test('removes consecutive spaces and underscores from title', async () => {
-    const title = 'Title    with___multiple     spaces___and___underscores';
-    const expectedFolderName = 'Title_with_multiple_spaces_and_underscores';
+    await downloadGallery('Title    with___multiple     spaces___and___underscores', 1, 'spaces');
 
-    await downloadPage!.stubFetchWithHtml(VALID_HTML_WITH_TITLE(title));
-    await downloadPage!.setupCrawlStubs();
-    await downloadPage!.openCreateJobDialog();
-    await downloadPage!.fillUrl('https://example.com/gallery/spaces');
-    await downloadPage!.triggerScrape();
-    await downloadPage!.waitForScrapeResult();
-
-    await downloadPage!.triggerStart();
-    await downloadPage!.waitForDialogToClose();
-
-    const createdFolders = await downloadPage!.getCreatedFolders();
-    const expectedPath = `${testDownloadPath}\\${expectedFolderName}`;
-
-    expect(createdFolders).toContain(expectedPath);
+    expect(await listFolders()).toEqual(['Title_with_multiple_spaces_and_underscores']);
   });
 
   test('removes leading and trailing dots from title', async () => {
-    const title = '...Title with dots...';
-    const expectedFolderName = 'Title_with_dots';
+    await downloadGallery('...Title with dots...', 1, 'dots');
 
-    await downloadPage!.stubFetchWithHtml(VALID_HTML_WITH_TITLE(title));
-    await downloadPage!.setupCrawlStubs();
-    await downloadPage!.openCreateJobDialog();
-    await downloadPage!.fillUrl('https://example.com/gallery/dots');
-    await downloadPage!.triggerScrape();
-    await downloadPage!.waitForScrapeResult();
-
-    await downloadPage!.triggerStart();
-    await downloadPage!.waitForDialogToClose();
-
-    const createdFolders = await downloadPage!.getCreatedFolders();
-    const expectedPath = `${testDownloadPath}\\${expectedFolderName}`;
-
-    expect(createdFolders).toContain(expectedPath);
-  });
-
-  test('verifies sanitization function directly', async () => {
-    const testCases = [
-      { input: 'Normal Title', expected: 'Normal_Title' },
-      { input: 'Title: with/colon', expected: 'Title_with_colon' },
-      { input: 'Title*with*asterisk', expected: 'Title_with_asterisk' },
-      { input: 'Title?with?question', expected: 'Title_with_question' },
-      { input: '"Title with quotes"', expected: 'Title_with_quotes' },
-      { input: 'Title<with>brackets', expected: 'Title_with_brackets' },
-      { input: 'Title|with|pipe', expected: 'Title_with_pipe' },
-      { input: '   Spaces around   ', expected: 'Spaces_around' },
-      { input: '', expected: expect.stringMatching(/^gallery_\d+$/) }
-    ];
-
-    for (const testCase of testCases) {
-      const sanitized = await downloadPage!.getSanitizedFolderName(testCase.input);
-
-      if (typeof testCase.expected === 'string') {
-        expect(sanitized).toBe(testCase.expected);
-      } else {
-        expect(sanitized).toEqual(testCase.expected);
-      }
-    }
+    expect(await listFolders()).toEqual(['Title_with_dots']);
   });
 });
