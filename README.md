@@ -4,8 +4,9 @@ Electron + React + TypeScript 製のデスクトップ画像ビューワーで�
 
 ## 必要環境
 
-- Node.js 18 以上(Windows での exe ビルドは Windows 上で実行)
+- Node.js 22 以上(`npm run test:unit` が Node のテストランナーのグロブ展開を使うため。アプリのビルドだけなら 18 以上で動作)
 - npm
+- Windows(`npm run build` の clean 処理と配布用 zip の作成は Windows 前提)
 
 ## セットアップ
 
@@ -30,7 +31,7 @@ npm start       # ビルドして dist/ から Electron を起動(パッケー�
 
 `npm start` は dev サーバーを使わず `dist/renderer/index.html` を読み込むため、パッケージ版に近い挙動を手早く確認できます。
 
-## exe ファイルのビルド(Windows ポータブル版)
+## 配布用 zip のビルド(Windows)
 
 ```sh
 npm run dist
@@ -40,10 +41,12 @@ npm run dist
 
 | 成果物 | 用途 |
 |---|---|
-| `release/image-viewer-<version>-portable.exe` | 配布物。インストール不要、ダブルクリックで起動 |
-| `release/win-unpacked/image-viewer.exe` | 未圧縮版。起動が速くデバッグ向き |
+| `release/image-viewer-<version>-win-x64.zip` | 配布物。任意のフォルダに展開し、中の `image-viewer.exe` を起動する |
+| `release/win-unpacked/` | zip の中身と同じ展開済みフォルダ。ビルド直後の動作確認に使う |
 
-設定は [package.json](package.json) の `build` セクションにあります。
+以前のポータブル exe(単一ファイル)形式は、起動ごとに約 300MB を `%TEMP%` へ展開するため起動に 15 秒以上かかっていました。展開済みフォルダから起動する zip 形式では 1 秒前後で起動します(初回のみ Windows のファイルキャッシュとウイルススキャンの分だけ長くかかります)。
+
+設定は [package.json](package.json) の `build` セクションにあります。アプリ本体は `dist/` と `package.json` だけがパッケージされ、実行時に必要な npm 依存はありません。
 
 ### アプリアイコン
 
@@ -51,25 +54,43 @@ npm run dist
 
 ### 初回ビルドの注意
 
-- electron-builder がツール類(nsis / winCodeSign など)を `%LOCALAPPDATA%\electron-builder\Cache` にダウンロードするため、初回のみネットワークアクセスが必要です。
+- electron-builder がツール類を `%LOCALAPPDATA%\electron-builder\Cache` にダウンロードするため、初回のみネットワークアクセスが必要です。
 - winCodeSign の展開が「シンボリックリンクを作成できません」で失敗する場合は、Windows の開発者モードを有効にするか、管理者権限で一度実行してください(失敗するのは macOS 用ファイルのリンク作成のみで、Windows ビルドには不要です)。
-- 生成される exe は未署名のため、配布先での初回実行時に SmartScreen の警告が出ます(「詳細情報」→「実行」で起動可能)。
+- 生成される exe は未署名のため、別の PC で初回実行するときは SmartScreen の警告が出ます(「詳細情報」→「実行」で起動可能)。
 
-## テストの実行(E2E / Playwright)
+## テスト
+
+### ユニットテスト(node:test + ts-node)
 
 ```sh
-npm run test:e2e          # フルビルドしてヘッドレス実行
-npm run test:e2e:headed   # ウィンドウを表示して実行
-npm run test:e2e:debug    # Playwright デバッグモード
+npm run test:unit
 ```
 
-テストは `tests/e2e/` にあり、ビルド済みの `dist/` に対して Electron を直接起動して検証します(実行前に自動でビルドされます)。
+対象は `src/**/__tests__/*.test.ts` です。
 
-### テストに関する注意
+- `src/renderer/utils/__tests__/scraper.test.ts`: ギャラリー HTML のスクレイピング(フィクスチャは `tests/fixtures/scraper/sample-gallery.html`)
+- `src/main/__tests__/sanitizeFolderName.test.ts`: ダウンロード先フォルダ名のサニタイズ
 
-- テストは `%APPDATA%\Electron\settings.json`(ファイルアクセス許可リストの元データ)を読み書きします。設定を変更するテストは保存/復元ではなく settings のリセットで後始末をしてください。
-- VSCode 統合ターミナルなど `ELECTRON_RUN_AS_NODE=1` が設定された環境から Electron や exe を直接起動すると、ただの Node プロセスとして起動して即終了します。起動前に `$env:ELECTRON_RUN_AS_NODE = $null`(PowerShell)で解除してください。
+### E2E テスト(Playwright)
 
-## ユニットテスト
+```sh
+npm run test:e2e          # フルビルドしてヘッドレス実行(約 3 分)
+npm run test:e2e:headed   # ウィンドウを表示して実行
+npm run test:e2e:debug    # Playwright デバッグモード
+npx playwright test app-launch.spec.ts   # 特定ファイルのみ(事前に npm run build が必要)
+```
 
-現在ユニットテストは未整備です(`npm test` はプレースホルダー)。
+テストは `tests/e2e/` にあり、ビルド済みの `dist/` に対して Electron を直接起動して検証します。
+
+- 各テストは `--user-data-dir` に一時フォルダを渡して起動するため、開発者の `%APPDATA%\Electron\settings.json` を読み書きしません。テスト用のダウンロード先(Explore のルート)は `launch({ downloadPath })` で起動前に設定されます。
+- ネットワークに依存する処理はメインプロセス側で `ipcMain` のハンドラを差し替えてスタブします(`tests/pages/DownloadPage.ts`)。画像ダウンロードの検証はローカル HTTP サーバーから配信し、外部通信は行いません。
+- VSCode 統合ターミナルなどで設定される `ELECTRON_RUN_AS_NODE=1` は、テストのヘルパーが自動で除去します。Electron や exe を手で起動する場合は `$env:ELECTRON_RUN_AS_NODE = $null`(PowerShell)で解除してください。
+
+### 静的チェック
+
+```sh
+npm run typecheck:tests   # テストコードの型チェック
+npm run lint              # ESLint(eslint.config.js)
+```
+
+`npm test` はユニットテストと E2E テストを続けて実行します。

@@ -45,15 +45,13 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "zip",
           "arch": [
             "x64"
           ]
         }
-      ]
-    },
-    "portable": {
-      "artifactName": "${productName}-${version}-portable.${ext}"
+      ],
+      "artifactName": "${name}-${version}-win-x64.${ext}"
     }
   },
   "devDependencies": {
@@ -87,8 +85,5 @@
     "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.2"
-  },
-  "dependencies": {
-    "electron-store": "^10.1.0"
   }
 }
