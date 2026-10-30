@@ -22,3 +22,5 @@ lerna-debug.log*
 test-results/
 playwright-report/
 playwright/.cache/
+# Runtime download output (never commit downloaded content)
+downloads/

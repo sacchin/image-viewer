@@ -79,7 +79,7 @@ export async function scrapeGalleryData(html: string): Promise<ScrapedData> {
 
     if (firstThumbnailUrl && pageCount > 0) {
       // Extract the base URL pattern from the thumbnail
-      // Example: https://images.asmhentai.com/017/554911/1t.jpg -> https://images.asmhentai.com/017/554911/
+      // Example: https://images.example.com/001/123456/1t.jpg -> https://images.example.com/001/123456/
       const match = firstThumbnailUrl.match(/^(.+\/)(\d+)t?\.\w+$/);
       if (match) {
         const baseUrl = match[1];
