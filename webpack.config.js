@@ -1,6 +1,14 @@
 const path = require('path');
+const fs = require('fs');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+
+// The site profile is resolved at build time: the git-ignored private profile
+// when present, otherwise the committed sample (see src/shared/sites/README.md)
+const privateProfile = path.resolve(__dirname, 'src/shared/sites/private');
+const siteProfile = fs.existsSync(path.join(privateProfile, 'index.ts'))
+  ? privateProfile
+  : path.resolve(__dirname, 'src/shared/sites/example');
 
 // Mode comes from the CLI (--mode); `webpack serve` for dev and plain
 // builds without a flag fall back to development
@@ -34,6 +42,7 @@ module.exports = (env, argv) => ({
     alias: {
       '@renderer': path.resolve(__dirname, 'src/renderer'),
       '@shared': path.resolve(__dirname, 'src/shared'),
+      '@site-profile': siteProfile,
     },
   },
   output: {

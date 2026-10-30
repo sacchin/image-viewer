@@ -103,7 +103,7 @@ module.exports = [
     }
   },
   {
-    files: ['*.js', '*.cjs'],
+    files: ['*.js', '*.cjs', 'scripts/**/*.js'],
     languageOptions: { sourceType: 'commonjs', globals: nodeGlobals }
   }
 ];

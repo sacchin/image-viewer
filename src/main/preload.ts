@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Fetch URL from main process to avoid CORS issues
   fetchUrl: (url: string) => ipcRenderer.invoke('fetch-url', url),
 
+  // External gallery: which site profile the main process is running with
+  getExternalProfileInfo: () => ipcRenderer.invoke('external-get-profile-info'),
+
   // Settings operations
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),

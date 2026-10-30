@@ -1,0 +1,48 @@
+#!/bin/sh
+# Rejects a commit when a staged addition or a staged file name contains a
+# term listed in .private-terms (one per line, '#' starts a comment, matched
+# case-insensitively as a literal string).
+# The terms file is git-ignored; without it this hook does nothing.
+# Install with: npm run hooks:install
+#
+# Matching uses awk rather than grep: the grep shipped with Git for Windows
+# aborts on `grep -i -F`, and a hook that crashes would silently let the
+# commit through.
+
+TERMS_FILE="$(git rev-parse --show-toplevel)/.private-terms"
+[ -f "$TERMS_FILE" ] || exit 0
+
+# Prints each private term found in stdin, one per line (lower-cased).
+scan_for_terms() {
+  awk -v termsfile="$TERMS_FILE" '
+    BEGIN {
+      n = 0
+      while ((getline l < termsfile) > 0) {
+        sub(/\r$/, "", l)
+        if (l ~ /^[ \t]*$/ || l ~ /^#/) continue
+        terms[++n] = tolower(l)
+      }
+    }
+    {
+      line = tolower($0)
+      for (i = 1; i <= n; i++) if (index(line, terms[i]) && !(terms[i] in seen)) { seen[terms[i]] = 1; print terms[i] }
+    }
+  '
+}
+
+content_hits="$(git diff --cached --no-color -U0 --diff-filter=ACMR | grep '^+' | grep -v '^+++ ' | scan_for_terms)" || {
+  echo "pre-commit: failed to scan staged content; refusing to commit" >&2
+  exit 1
+}
+name_hits="$(git diff --cached --name-only --diff-filter=ACMR | scan_for_terms)" || {
+  echo "pre-commit: failed to scan staged file names; refusing to commit" >&2
+  exit 1
+}
+
+if [ -z "$content_hits" ] && [ -z "$name_hits" ]; then
+  exit 0
+fi
+for t in $content_hits; do echo "pre-commit: staged content contains a private term: $t" >&2; done
+for t in $name_hits; do echo "pre-commit: a staged file name contains a private term: $t" >&2; done
+echo "pre-commit: commit rejected. Move the content to a git-ignored location (see src/shared/sites/README.md)." >&2
+exit 1

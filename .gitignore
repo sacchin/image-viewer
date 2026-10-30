@@ -24,3 +24,9 @@ playwright-report/
 playwright/.cache/
 # Runtime download output (never commit downloaded content)
 downloads/
+
+# External gallery: site-specific profile, fixtures and the private term list
+# stay local. See src/shared/sites/README.md
+src/shared/sites/private/
+tests/fixtures/private/
+.private-terms

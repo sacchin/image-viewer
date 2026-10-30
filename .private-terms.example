@@ -1,0 +1,6 @@
+# Copy to .private-terms (git-ignored) and list, one per line, every string
+# that must never appear in a commit: the site's domain, its name, distinctive
+# URL parameters, CSS class names, category labels. Matching is
+# case-insensitive and literal (no regex). Lines starting with '#' are ignored.
+gallery.example.com
+images.example.com

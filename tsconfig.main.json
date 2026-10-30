@@ -6,6 +6,6 @@
     "outDir": "./dist",
     "rootDir": "./src"
   },
-  "include": ["src/main/**/*"],
-  "exclude": ["src/main/**/__tests__/**"]
+  "include": ["src/main/**/*", "src/shared/sites/**/*"],
+  "exclude": ["src/main/**/__tests__/**", "src/shared/**/__tests__/**"]
 }

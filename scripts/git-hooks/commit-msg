@@ -1,0 +1,31 @@
+#!/bin/sh
+# Rejects a commit whose message contains a term listed in .private-terms.
+# See pre-commit for the format and why awk is used instead of grep.
+# Install with: npm run hooks:install
+
+TERMS_FILE="$(git rev-parse --show-toplevel)/.private-terms"
+[ -f "$TERMS_FILE" ] || exit 0
+MSG_FILE="$1"
+
+hits="$(awk -v termsfile="$TERMS_FILE" '
+  BEGIN {
+    n = 0
+    while ((getline l < termsfile) > 0) {
+      sub(/\r$/, "", l)
+      if (l ~ /^[ \t]*$/ || l ~ /^#/) continue
+      terms[++n] = tolower(l)
+    }
+  }
+  /^#/ { next }  # comment lines git strips from the message
+  {
+    line = tolower($0)
+    for (i = 1; i <= n; i++) if (index(line, terms[i]) && !(terms[i] in seen)) { seen[terms[i]] = 1; print terms[i] }
+  }
+' "$MSG_FILE")" || {
+  echo "commit-msg: failed to scan the commit message; refusing to commit" >&2
+  exit 1
+}
+
+[ -z "$hits" ] && exit 0
+for t in $hits; do echo "commit-msg: commit message contains a private term: $t" >&2; done
+exit 1

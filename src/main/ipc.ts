@@ -7,6 +7,7 @@ import * as http from 'http';
 import { URL } from 'url';
 import { settingsManager } from './settings';
 import { sanitizeFolderName } from './sanitizeFolderName';
+import { getSiteProfile } from './external/profileLoader';
 
 // Download job tracking
 interface DownloadJob {
@@ -442,6 +443,13 @@ export function setupIpcHandlers(): void {
       const message = error instanceof Error ? error.message : 'Unknown error occurred while fetching';
       return { success: false, error: message };
     }
+  });
+
+  // External gallery: let the renderer show which profile is active. Only
+  // display fields cross the bridge; hosts and parsers stay in main.
+  ipcMain.handle('external-get-profile-info', async () => {
+    const { profile, isSample } = getSiteProfile();
+    return { id: profile.id, displayName: profile.displayName, isSample };
   });
 
   // Settings operations
